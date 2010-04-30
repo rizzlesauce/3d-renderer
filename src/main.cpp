@@ -1,7 +1,5 @@
 #include <SDL/SDL.h>
 #include <SDL/SDL_opengl.h>
-//#include <GL/gl.h>
-//#include <GL/glu.h>
 #include <iostream>
 #include <sstream>
 #include <cstdio>
@@ -78,7 +76,7 @@ void GL_Setup(int width, int height)
 	glTranslatef(0.375, 0.375, 0);
 }
 
-int main() {
+int main(int argc, char *argv[]) {
 	// Initialize SDL with best video mode
 	SDL_Init(SDL_INIT_VIDEO);
 	const SDL_VideoInfo* info = SDL_GetVideoInfo();
