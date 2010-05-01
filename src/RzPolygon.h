@@ -10,12 +10,14 @@
 
 #include <vector>
 #include "RzVertex3f.h"
+#include "RzTriangle.h"
 using namespace std;
 
 class RzPolygon {
 public:
 	RzPolygon();
 	virtual ~RzPolygon();
+	vector<RzTriangle> getTriangles();
 
 	vector<RzVertex3f> vertices;
 };
