@@ -35,7 +35,7 @@ Debugger::print(string message) {
         cout << message << endl;
 		fflush(stdout);
 
-		logger.log(message);
+		//logger.log(message);
     }
 }
 

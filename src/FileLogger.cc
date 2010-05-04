@@ -1,6 +1,6 @@
 #include "FileLogger.h"
 #include "Utils.h"
-#include <sys/time.h>
+//#include <sys/time.h>
 #include <string>
 //#include <semaphore.h>
 #include <iostream>
@@ -32,15 +32,17 @@ FileLogger::log(string message) {
 
 	// Wait our turn before getting the current time to avoid
 	// misordering of times
-	struct timeval time;
-	if (gettimeofday(&time, NULL) == -1) {
-		result = -1;
-	} else {
+	//struct timeval time;
+	//if (gettimeofday(&time, NULL) == -1) {
+		//result = -1;
+	//} else {
 		ofstream logFile;
 		logFile.open(_filename.c_str(), ios::out | ios::app);
-		logFile << time.tv_sec << ":" << time.tv_usec << " " << message << endl;
+		//logFile << time.tv_sec << ":" << time.tv_usec;
+		//logFile << " ";
+		logFile << message << endl;
 		logFile.close();
-	}
+	//}
 
 	//sem_post(&_fileAccess);
 	return result;

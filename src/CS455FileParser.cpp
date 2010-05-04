@@ -126,6 +126,7 @@ RzPolygonGroupCollection *CS455FileParser::parseFile(const string fileName) {
 		// add the polygon group to the collection
 		collection->polygonGroups.push_back(polygonGroup);
 	}
+	fileStream.close();
 
 	return collection;
 }

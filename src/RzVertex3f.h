@@ -12,6 +12,15 @@ class RzVertex3f {
 public:
 	RzVertex3f();
 	virtual ~RzVertex3f();
+	float *x, *y, *z;
+
+	float getX();
+	float getY();
+	float getZ();
+
+	void setX(float);
+	void setY(float);
+	void setZ(float);
 
 	float coordinates[6];
 };

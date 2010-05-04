@@ -12,6 +12,19 @@ class RzColor3f {
 public:
 	RzColor3f();
 	virtual ~RzColor3f();
+	float *red, *green, *blue;
+
+	float getRed();
+	float getGreen();
+	float getBlue();
+
+	unsigned int getScaledRed();
+	unsigned int getScaledGreen();
+	unsigned int getScaledBlue();
+
+	void setRed(float r);
+	void setGreen(float g);
+	void setBlue(float b);
 
 	float components[3];
 };
