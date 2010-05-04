@@ -138,6 +138,125 @@ float interpolateZ(float z1, float z2, float z3, float y1, float ys, float y2, f
 	return zp;
 }
 
+float interpolateZhorizontal(float za, float zb, float xa, float xp, float xb) {
+	float zp;
+
+	zp = zb - (zb - za) * (xb - xp) / (xb - xa);
+	return zp;
+}
+
+void fillUpperPart(RzVertex3f *top, RzVertex3f *mid, RzVertex3f *bottom, float leftUpperSlope,
+		float rightUpperSlope, RzColor3f *color3f) {
+
+	float row = 0.0;
+	float yPosition = top->getY();
+	float xLeft, xRight;
+	float xPosition;
+	while (yPosition <= mid->getY()) {
+		// fill in the line
+
+		xLeft = xRight = top->getX();
+
+		xLeft += row / leftUpperSlope;
+		xRight += row / rightUpperSlope;
+
+		xPosition = xLeft;
+		while (xPosition < xRight) {
+			// draw the point
+			drawPoint3f(xPosition, yPosition,
+					interpolateZ(top->getZ(),
+							mid->getZ(),
+							bottom->getZ(),
+							top->getY(),
+							yPosition,
+							mid->getY(),
+							bottom->getY(),
+							xLeft,
+							xPosition,
+							xRight
+							),
+							*color3f);
+
+			xPosition += 1.0;
+		}
+
+		yPosition += 1.0;
+		row += 1.0;
+	}
+}
+
+/*
+void fillLine(RzVertex3f *v1, RzVertex3f *v2, RzColor3f *color3f) {
+	float slope = computeSlope2d(v1, v2);
+
+}
+*/
+void fillHorizontalLine(RzVertex3f *v1, RzVertex3f *v2, RzColor3f *color3f) {
+	float xLeft, xRight;
+	float xPosition;
+	float yPosition = v1->getY();
+	// fill in the line
+
+	xLeft = v1->getX();
+	xRight = v2->getX();
+
+	xPosition = xLeft;
+	while (xPosition < xRight) {
+		// draw the point
+		drawPoint3f(xPosition, yPosition,
+				interpolateZhorizontal(v1->getZ(),
+						v2->getZ(),
+						xLeft,
+						xPosition,
+						xRight
+						),
+						*color3f);
+
+		xPosition += 1.0;
+	}
+}
+
+void fillLowerPart(RzVertex3f *top, RzVertex3f *mid, RzVertex3f *bottom, float leftLowerSlope,
+		float rightLowerSlope, RzColor3f *color3f) {
+
+	float row = 0.0;
+	float yPosition = bottom->getY();
+	float xLeft, xRight;
+	float xPosition;
+	while (yPosition >= mid->getY()) {
+		// fill in the line
+
+		xLeft = xRight = bottom->getX();
+
+		xLeft += row / leftLowerSlope;
+		xRight += row / rightLowerSlope;
+
+		xPosition = xLeft;
+		while (xPosition < xRight) {
+			// draw the point
+			drawPoint3f(xPosition, yPosition,
+					interpolateZ(bottom->getZ(),
+							mid->getZ(),
+							top->getZ(),
+							bottom->getY(),
+							yPosition,
+							mid->getY(),
+							top->getY(),
+							xLeft,
+							xPosition,
+							xRight
+							),
+							*color3f);
+
+			xPosition += 1.0;
+		}
+
+		yPosition += -1.0;
+		row += -1.0;
+	}
+
+}
+
 void main_loop_function()
 {
 	unsigned int polygonGroupIndex;
@@ -167,13 +286,6 @@ void main_loop_function()
 	// compare deltas
 	float deltaTopMid;
 	float deltaTopBottom;
-
-	float leftUpperSlope, leftLowerSlope, rightUpperSlope, rightLowerSlope;
-	float xLeft, xRight;
-	float row;
-	float yPosition;
-	float xPosition;
-
 
 	//float angle;
 	//float xAdd = 0;
@@ -305,18 +417,6 @@ void main_loop_function()
 					}
 					// scan line convert
 
-					/*
-					vector<RzVertex3f> vertices;
-					vertices.push_back(triangle->vertices[0]);
-					vertices.push_back(triangle->vertices[1]);
-					vertices.push_back(triangle->vertices[2]);
-					sort(vertices.begin(), vertices.end(), compareVertexYs);
-
-					topVertex = &vertices[0];
-					midVertex = &vertices[1];
-					bottomVertex = &vertices[2];
-					*/
-
 					// get bottom, mid, top vertices
 					bottomVertex = &triangle->vertices[0];
 					midVertex = &triangle->vertices[1];
@@ -332,6 +432,34 @@ void main_loop_function()
 							swapPointers((void**)&midVertex, (void**)&bottomVertex);
 						}
 					}
+
+					// sort vertices with same y
+					if (topVertex->getY() == bottomVertex->getY()) {
+						// perfectly flat line
+						// sort by x value
+						if (midVertex->getX() > bottomVertex->getX()) {
+							swapPointers((void**)&midVertex, (void**)&bottomVertex);
+						}
+						if (topVertex->getX() > midVertex->getX()) {
+							swapPointers((void**)&topVertex, (void**)&midVertex);
+
+							if (midVertex->getX() > bottomVertex->getX()) {
+								swapPointers((void**)&midVertex, (void**)&bottomVertex);
+							}
+						}
+					} else if (topVertex->getY() == midVertex->getY()) {
+						// flat on top
+						if (topVertex->getX() > midVertex->getX()) {
+							swapPointers((void**)&topVertex, (void**)&midVertex);
+						}
+					} else if (midVertex->getY() == bottomVertex->getY()) {
+						// flat on bottom
+						if (bottomVertex->getX() > midVertex->getX()) {
+							swapPointers((void**)&bottomVertex, (void**)&midVertex);
+						}
+					}
+
+					// what about the case where the triangle is perfectly thin?
 
 					/*
 					glColor3f(1.0, 0, 0);
@@ -363,142 +491,29 @@ void main_loop_function()
 
 					//RzVertex3f *left, *right;
 
-					if (deltaTopMid < deltaTopBottom) {
-						//left = midVertex;
-						//right = bottomVertex;
+					if (topVertex->getY() == bottomVertex->getY()) {
+						// perfectly flat line
+						fillHorizontalLine(topVertex, midVertex, color3f);
+						fillHorizontalLine(midVertex, bottomVertex, color3f);
 
-						leftUpperSlope = slopeTopMid;
-						leftLowerSlope = slopeMidBottom;
-						rightUpperSlope = rightLowerSlope = slopeTopBottom;
+					} else if (topVertex->getY() == midVertex->getY()) {
+						// flat on top
+						fillLowerPart(topVertex, midVertex, bottomVertex,
+								slopeTopBottom, slopeMidBottom, color3f);
+					} else if (midVertex->getY() == bottomVertex->getY()) {
+						// flat on bottom
+						fillUpperPart(topVertex, midVertex, bottomVertex,
+								slopeTopBottom, slopeTopMid, color3f);
+					} else if (deltaTopMid < deltaTopBottom) {
+						fillUpperPart(topVertex, midVertex, bottomVertex,
+								slopeTopMid, slopeTopBottom, color3f);
+						fillLowerPart(topVertex, midVertex, bottomVertex,
+								slopeMidBottom, slopeTopBottom, color3f);
 					} else {
-						//left = bottomVertex;
-						//right = midVertex;
-
-						leftUpperSlope = leftLowerSlope = slopeTopBottom;
-						rightUpperSlope = slopeTopMid;
-						rightLowerSlope = slopeMidBottom;
-					}
-
-					/*
-					// test for infinite slopes
-					if (1.0 / leftUpperSlope == 0 || 1.0 / leftUpperSlope == -0) {
-							// infinite
-						leftUpperSlope = 0;
-					}
-					if (1.0 / rightUpperSlope == 0 || 1.0 / rightUpperSlope == -0) {
-							// infinite
-						rightUpperSlope = 0;
-					}
-					if (1.0 / leftLowerSlope == 0 || 1.0 / leftLowerSlope == -0) {
-							// infinite
-						leftLowerSlope = 0;
-					}
-					if (1.0 / rightLowerSlope == 0 || 1.0 / rightLowerSlope == -0) {
-							// infinite
-						rightLowerSlope = 0;
-					}
-					*/
-
-					/*
-					ss.clear();
-					ss << "yPosition: " << yPosition;
-					ss << " ";
-					ss << "midVertex.y: " << midVertex->getY();
-					Debugger::getInstance().print(ss.str());
-					*/
-
-					// fill the upper rows
-					row = 0.0;
-					yPosition = topVertex->getY();
-					while (yPosition <= midVertex->getY()) {
-						// fill in the line
-
-						xLeft = xRight = topVertex->getX();
-
-						xLeft += row / leftUpperSlope;
-						xRight += row / rightUpperSlope;
-
-						/*
-						ss.clear();
-						ss << "xLeft: " << xLeft;
-						ss << " ";
-						ss << "xRight: " << xRight;
-						Debugger::getInstance().print(ss.str());
-						*/
-
-						/* xRight = -inf?
-						if (xLeft >= xRight) {
-							ss.clear();
-							ss << "xLeft: " << xLeft;
-							ss << " ";
-							ss << "xRight: " << xRight;
-							Debugger::getInstance().print(ss.str());
-						}
-						*/
-
-						xPosition = xLeft;
-						while (xPosition < xRight) {
-							// draw the point
-							drawPoint3f(xPosition, yPosition,
-									interpolateZ(topVertex->getZ(),
-											midVertex->getZ(),
-											bottomVertex->getZ(),
-											topVertex->getY(),
-											yPosition,
-											midVertex->getY(),
-											bottomVertex->getY(),
-											xLeft,
-											xPosition,
-											xRight
-											),
-											*color3f);
-
-							/*
-							if (xPosition < 0 || yPosition < 0) {
-								ss.clear();
-								ss << "xPos: " << xPosition << "yPos: " << yPosition;
-								Debugger::getInstance().print(ss.str());
-							}
-							*/
-							xPosition += 1.0;
-						}
-
-						yPosition += 1.0;
-						row = row + 1.0;
-					}
-
-					// fill the lower rows
-					yPosition = bottomVertex->getY();
-					row = 0.0;
-					while (yPosition > midVertex->getY()) {
-						// fill in the line
-
-						xLeft = xRight = bottomVertex->getX();
-						xLeft += row / leftLowerSlope;
-						xRight += row / rightLowerSlope;
-
-						xPosition = xLeft;
-						while (xPosition < xRight) {
-							// draw the point
-							drawPoint3f(xPosition, yPosition,
-									interpolateZ(bottomVertex->getZ(),
-											midVertex->getZ(),
-											topVertex->getZ(),
-											bottomVertex->getY(),
-											yPosition,
-											midVertex->getY(),
-											topVertex->getY(),
-											xLeft,
-											xPosition,
-											xRight
-											),
-											*color3f);
-
-							xPosition += 1.0;
-						}
-
-						yPosition -= 1.0;
-						row -= 1.0;
+						fillUpperPart(topVertex, midVertex, bottomVertex,
+								slopeTopBottom, slopeTopMid, color3f);
+						fillLowerPart(topVertex, midVertex, bottomVertex,
+								slopeTopBottom, slopeMidBottom, color3f);
 					}
 				}
 			}
