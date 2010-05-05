@@ -1,6 +1,7 @@
 .cproject
 .project
 Debug
+Release
 messages.log
 *~
 *.swp

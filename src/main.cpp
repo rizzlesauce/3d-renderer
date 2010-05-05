@@ -23,9 +23,9 @@ using namespace std;
 
 // Keydown booleans
 bool key[321];
-vector<vector<float> > zBuffer;
-vector<vector<bool> > zBufferSet;
-vector<vector<RzColor3f> > colorBuffer;
+float zBuffer[WINDOW_WIDTH][WINDOW_HEIGHT];
+bool zBufferSet[WINDOW_WIDTH][WINDOW_HEIGHT];
+RzColor3f colorBuffer[WINDOW_WIDTH][WINDOW_HEIGHT];
 
 RzPolygonGroupCollection *collection;
 
@@ -101,7 +101,7 @@ bool compareVertexYs(RzVertex3f v1, RzVertex3f v2) {
 }
 */
 
-void drawPoint3fForReal(int x, int y, float z, RzColor3f color) {
+void drawPoint3iForReal(int x, int y, float z, RzColor3f color) {
 	zBufferSet[x][y] = true;
 	zBuffer[x][y] = z;
 	colorBuffer[x][y] = color;
@@ -112,6 +112,8 @@ void drawPoint3f(float x, float y, float z, RzColor3f color) {
 	// get buffer coordinates
 	int i_x = round(x);
 	int i_y = round(y);
+	//int i_x = floor(x);
+	//int i_y = floor(y);
 
 	if (i_x >= WINDOW_WIDTH || i_x < 0 || i_y >= WINDOW_HEIGHT || i_y < 0) {
 			// out of bounds
@@ -121,10 +123,10 @@ void drawPoint3f(float x, float y, float z, RzColor3f color) {
 	// check the z buffer
 	if (zBufferSet[i_x][i_y]) {
 		if (z > zBuffer[i_x][i_y]) {
-			drawPoint3fForReal(i_x, i_y, z, color);
+			drawPoint3iForReal(i_x, i_y, z, color);
 		}
 	} else {
-		drawPoint3fForReal(i_x, i_y, z, color);
+		drawPoint3iForReal(i_x, i_y, z, color);
 	}
 }
 
@@ -145,20 +147,22 @@ float interpolateZhorizontal(float za, float zb, float xa, float xp, float xb) {
 	return zp;
 }
 
-void fillUpperPart(RzVertex3f *top, RzVertex3f *mid, RzVertex3f *bottom, float leftUpperSlope,
-		float rightUpperSlope, RzColor3f *color3f) {
+void fillUpperPart(RzVertex3f *top, RzVertex3f *mid, RzVertex3f *bottom, float leftUpperDelta,
+		float rightUpperDelta, RzColor3f *color3f) {
 
-	float row = 0.0;
 	float yPosition = top->getY();
 	float xLeft, xRight;
 	float xPosition;
-	while (yPosition <= mid->getY()) {
+	float endY = mid->getY();
+	xLeft = xRight = top->getX();
+	/*
+	if ((float)round(yPosition) > yPosition) {
+		yPosition -= 1.0;
+		endY -= 1.0;
+	}
+	*/
+	while (yPosition < endY) {
 		// fill in the line
-
-		xLeft = xRight = top->getX();
-
-		xLeft += row / leftUpperSlope;
-		xRight += row / rightUpperSlope;
 
 		xPosition = xLeft;
 		while (xPosition < xRight) {
@@ -180,8 +184,10 @@ void fillUpperPart(RzVertex3f *top, RzVertex3f *mid, RzVertex3f *bottom, float l
 			xPosition += 1.0;
 		}
 
+		xLeft += leftUpperDelta;
+		xRight += rightUpperDelta;
+
 		yPosition += 1.0;
-		row += 1.0;
 	}
 }
 
@@ -201,7 +207,7 @@ void fillHorizontalLine(RzVertex3f *v1, RzVertex3f *v2, RzColor3f *color3f) {
 	xRight = v2->getX();
 
 	xPosition = xLeft;
-	while (xPosition < xRight) {
+	while (xPosition <= xRight) {
 		// draw the point
 		drawPoint3f(xPosition, yPosition,
 				interpolateZhorizontal(v1->getZ(),
@@ -216,20 +222,15 @@ void fillHorizontalLine(RzVertex3f *v1, RzVertex3f *v2, RzColor3f *color3f) {
 	}
 }
 
-void fillLowerPart(RzVertex3f *top, RzVertex3f *mid, RzVertex3f *bottom, float leftLowerSlope,
-		float rightLowerSlope, RzColor3f *color3f) {
+void fillLowerPart(RzVertex3f *top, RzVertex3f *mid, RzVertex3f *bottom, float leftLowerDelta,
+		float rightLowerDelta, RzColor3f *color3f) {
 
-	float row = 0.0;
 	float yPosition = bottom->getY();
 	float xLeft, xRight;
 	float xPosition;
-	while (yPosition >= mid->getY()) {
+	xLeft = xRight = bottom->getX();
+	while (yPosition > mid->getY()) {
 		// fill in the line
-
-		xLeft = xRight = bottom->getX();
-
-		xLeft += row / leftLowerSlope;
-		xRight += row / rightLowerSlope;
 
 		xPosition = xLeft;
 		while (xPosition < xRight) {
@@ -251,10 +252,10 @@ void fillLowerPart(RzVertex3f *top, RzVertex3f *mid, RzVertex3f *bottom, float l
 			xPosition += 1.0;
 		}
 
+		xLeft -= leftLowerDelta;
+		xRight -= rightLowerDelta;
 		yPosition += -1.0;
-		row += -1.0;
 	}
-
 }
 
 void main_loop_function()
@@ -262,19 +263,17 @@ void main_loop_function()
 	unsigned int polygonGroupIndex;
 	unsigned int polygonIndex;
 	unsigned int triangleIndex;
-	unsigned int vertexIndex;
+	//unsigned int vertexIndex;
 	unsigned int x, y;
 	RzPolygonGroup *polygonGroup;
 	RzPolygon *polygon;
 	RzTriangle *triangle;
-	RzVertex3f *vertex3f;
+	//RzVertex3f *vertex3f;
 	RzColor3f *color3f;
-	float boundingXMin, boundingXMax, boundingYMin, boundingYMax;
 	//float boundingWidth;
 	//float boundingHeight;
 	//float scaleFactor;
 	stringstream ss;
-	bool first;
 	RzVertex3f *midVertex, *topVertex, *bottomVertex;
 	//int numLogs = 20;
 	vector<RzTriangle> triangles;
@@ -286,6 +285,7 @@ void main_loop_function()
 	// compare deltas
 	float deltaTopMid;
 	float deltaTopBottom;
+	float deltaMidBottom;
 
 	//float angle;
 	//float xAdd = 0;
@@ -294,39 +294,6 @@ void main_loop_function()
 
 	while(events())
 	{
-		// find the bounding box
-		first = true;
-		for (polygonGroupIndex = 0; polygonGroupIndex < collection->polygonGroups.size(); ++polygonGroupIndex) {
-			polygonGroup = &collection->polygonGroups[polygonGroupIndex];
-			for (polygonIndex = 0; polygonIndex < polygonGroup->polygons.size(); ++polygonIndex) {
-				polygon = &polygonGroup->polygons[polygonIndex];
-				for (vertexIndex = 0; vertexIndex < polygon->vertices.size(); ++vertexIndex) {
-					vertex3f = &polygon->vertices[vertexIndex];
-					if (first) {
-						boundingXMin = boundingXMax = vertex3f->getX();
-						boundingYMin = boundingYMax = vertex3f->getY();
-						first = false;
-					} else {
-						if(vertex3f->getX() < boundingXMin) {
-							boundingXMin = vertex3f->getX();
-						}
-						if(vertex3f->getX() > boundingXMax) {
-							boundingXMax = vertex3f->getX();
-						}
-						if(vertex3f->getY() < boundingYMin) {
-							boundingYMin = vertex3f->getY();
-						}
-						if(vertex3f->getY() > boundingYMax) {
-							boundingYMax = vertex3f->getY();
-						}
-					}
-				}
-			}
-		}
-
-		boundingXMin -= 0.1 * (boundingXMax - boundingXMin);
-		boundingXMax += 0.1 * (boundingXMax - boundingXMin);
-
 		// initialize the buffers
 		for (x = 0; x < WINDOW_WIDTH; ++x) {
 			for (y = 0; y < WINDOW_HEIGHT; ++y) {
@@ -399,22 +366,6 @@ void main_loop_function()
 
 						// draw the triangle vertices
 					triangle = &triangles[triangleIndex];
-					for (vertexIndex = 0; vertexIndex < 3; ++vertexIndex) {
-						vertex3f = &triangle->vertices[vertexIndex];
-
-						// put vertex in our coordinate system
-						vertex3f->setX(
-								translateScaleX(boundingXMin, boundingXMax,
-										boundingYMin, boundingYMax, vertex3f->getX()));
-						vertex3f->setY(
-								translateScaleY(boundingXMin, boundingXMax,
-										boundingYMin, boundingYMax, vertex3f->getY()));
-
-						/*
-						glVertex2f(round(vertex3f->getX()),
-								round(vertex3f->getY()));
-								*/
-					}
 					// scan line convert
 
 					// get bottom, mid, top vertices
@@ -488,6 +439,7 @@ void main_loop_function()
 					// compare deltas
 					deltaTopMid = 1.0 / slopeTopMid;
 					deltaTopBottom = 1.0 / slopeTopBottom;
+					deltaMidBottom = 1.0 / slopeMidBottom;
 
 					//RzVertex3f *left, *right;
 
@@ -499,21 +451,21 @@ void main_loop_function()
 					} else if (topVertex->getY() == midVertex->getY()) {
 						// flat on top
 						fillLowerPart(topVertex, midVertex, bottomVertex,
-								slopeTopBottom, slopeMidBottom, color3f);
+								deltaTopBottom, deltaMidBottom, color3f);
 					} else if (midVertex->getY() == bottomVertex->getY()) {
 						// flat on bottom
 						fillUpperPart(topVertex, midVertex, bottomVertex,
-								slopeTopBottom, slopeTopMid, color3f);
+								deltaTopBottom, deltaTopMid, color3f);
 					} else if (deltaTopMid < deltaTopBottom) {
 						fillUpperPart(topVertex, midVertex, bottomVertex,
-								slopeTopMid, slopeTopBottom, color3f);
+								deltaTopMid, deltaTopBottom, color3f);
 						fillLowerPart(topVertex, midVertex, bottomVertex,
-								slopeMidBottom, slopeTopBottom, color3f);
+								deltaMidBottom, deltaTopBottom, color3f);
 					} else {
 						fillUpperPart(topVertex, midVertex, bottomVertex,
-								slopeTopBottom, slopeTopMid, color3f);
+								deltaTopBottom, deltaTopMid, color3f);
 						fillLowerPart(topVertex, midVertex, bottomVertex,
-								slopeTopBottom, slopeMidBottom, color3f);
+								deltaTopBottom, deltaMidBottom, color3f);
 					}
 				}
 			}
@@ -543,11 +495,11 @@ void main_loop_function()
 			//angle+=0.5;
 		}
 		if (key[SDLK_UP]) {
-			zAdd += 10.0;
+			//zAdd += 10.0;
 			Debugger::getInstance().print("up key");
 		}
 		if (key[SDLK_DOWN]) {
-			zAdd -= 10.0;
+			//zAdd -= 10.0;
 			Debugger::getInstance().print("down key");
 		}
 		*/
@@ -557,7 +509,7 @@ void main_loop_function()
 // Initialze OpenGL perspective matrix
 void GL_Setup(int width, int height)
 {
-	glViewport(0, 0, width, height);
+	//glViewport(0, 0, width, height);
 	glMatrixMode(GL_PROJECTION);
 	glLoadIdentity();
 	glOrtho(0, width, height, 0, 0, 1);
@@ -571,6 +523,21 @@ void GL_Setup(int width, int height)
 
 int main(int argc, char *argv[]) {
 	// Initialize SDL with best video mode
+	unsigned int polygonGroupIndex;
+	unsigned int polygonIndex;
+	unsigned int vertexIndex;
+	RzPolygonGroup *polygonGroup;
+	RzPolygon *polygon;
+	RzVertex3f *vertex3f;
+	float boundingXMin, boundingXMax, boundingYMin, boundingYMax;
+	//float boundingWidth;
+	//float boundingHeight;
+	//float scaleFactor;
+	stringstream ss;
+	bool first;
+	//int numLogs = 20;
+	vector<RzTriangle> triangles;
+
 	SDL_Init(SDL_INIT_VIDEO);
 	const SDL_VideoInfo* info = SDL_GetVideoInfo();
 	int vidFlags = SDL_OPENGL | SDL_GL_DOUBLEBUFFER;
@@ -589,9 +556,61 @@ int main(int argc, char *argv[]) {
 	CS455FileParser parser;
 	collection = parser.parseFile("data/biplane.dat");
 
+	/*
 	zBuffer.resize(WINDOW_WIDTH, vector<float>(WINDOW_HEIGHT));
 	zBufferSet.resize(WINDOW_WIDTH, vector<bool>(WINDOW_HEIGHT, false));
 	colorBuffer.resize(WINDOW_WIDTH, vector<RzColor3f>(WINDOW_HEIGHT));
+	*/
+
+	// find the bounding box
+	first = true;
+	for (polygonGroupIndex = 0; polygonGroupIndex < collection->polygonGroups.size(); ++polygonGroupIndex) {
+		polygonGroup = &collection->polygonGroups[polygonGroupIndex];
+		for (polygonIndex = 0; polygonIndex < polygonGroup->polygons.size(); ++polygonIndex) {
+			polygon = &polygonGroup->polygons[polygonIndex];
+			for (vertexIndex = 0; vertexIndex < polygon->vertices.size(); ++vertexIndex) {
+				vertex3f = &polygon->vertices[vertexIndex];
+				if (first) {
+					boundingXMin = boundingXMax = vertex3f->getX();
+					boundingYMin = boundingYMax = vertex3f->getY();
+					first = false;
+				} else {
+					if(vertex3f->getX() < boundingXMin) {
+						boundingXMin = vertex3f->getX();
+					}
+					if(vertex3f->getX() > boundingXMax) {
+						boundingXMax = vertex3f->getX();
+					}
+					if(vertex3f->getY() < boundingYMin) {
+						boundingYMin = vertex3f->getY();
+					}
+					if(vertex3f->getY() > boundingYMax) {
+						boundingYMax = vertex3f->getY();
+					}
+				}
+			}
+		}
+	}
+
+	boundingXMin -= 0.1 * (boundingXMax - boundingXMin);
+	boundingXMax += 0.1 * (boundingXMax - boundingXMin);
+
+	for (polygonGroupIndex = 0; polygonGroupIndex < collection->polygonGroups.size(); ++polygonGroupIndex) {
+		polygonGroup = &collection->polygonGroups[polygonGroupIndex];
+		for (polygonIndex = 0; polygonIndex < polygonGroup->polygons.size(); ++polygonIndex) {
+			polygon = &polygonGroup->polygons[polygonIndex];
+			for (vertexIndex = 0; vertexIndex < polygon->vertices.size(); ++vertexIndex) {
+				vertex3f = &polygon->vertices[vertexIndex];
+				// put vertex in our coordinate system
+				vertex3f->setX(
+						translateScaleX(boundingXMin, boundingXMax,
+								boundingYMin, boundingYMax, vertex3f->getX()));
+				vertex3f->setY(
+						translateScaleY(boundingXMin, boundingXMax,
+								boundingYMin, boundingYMax, vertex3f->getY()));
+			}
+		}
+	}
 
 	main_loop_function();
 
