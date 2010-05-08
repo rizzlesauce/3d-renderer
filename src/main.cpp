@@ -27,6 +27,12 @@ float zBuffer[WINDOW_WIDTH][WINDOW_HEIGHT];
 bool zBufferSet[WINDOW_WIDTH][WINDOW_HEIGHT];
 RzColor3f colorBuffer[WINDOW_WIDTH][WINDOW_HEIGHT];
 
+//int numPointPlots = 0;
+//int maxPointPlots = 0;
+int numScanLines = 0;
+int maxScanLines = 1000000000;
+//int maxScanLines = 0;
+
 RzPolygonGroupCollection *collection;
 
 // Process pending events
@@ -65,26 +71,6 @@ float translateScaleY(float boundingXMin, float boundingXMax, float boundingYMin
 	return ret;
 }
 
-float computeSlope2d(RzVertex3f *v1, RzVertex3f *v2) {
-	float denominator = v1->getX() - v2->getX();
-	float slope;
-	/* float takes care of divide by zero for us
-	if (denominator == 0) {
-		// don't try to divide by zero
-		slope = 0;
-	} else {
-		slope = (v1->getY() - v2->getY()) / denominator;
-	}
-	*/
-	slope = (v1->getY() - v2->getY()) / denominator;
-	return slope;
-}
-
-float computeDelta2d(RzVertex3f *v1, RzVertex3f *v2) {
-	float delta = 1.0 / computeSlope2d(v1, v2);
-	return delta;
-}
-
 void swapPointers(void **v1, void **v2) {
 	void *tmp_v = *v1;
 	*v1 = *v2;
@@ -95,43 +81,102 @@ int round1f(float f) {
 	return floor(0.5 + f);
 }
 
+int intify(float f) {
+	//return floor(f);
+	return round1f(f);
+	//return ceil(f);
+}
+
+float computeSlope2d(RzVertex3f *v1, RzVertex3f *v2) {
+	float denominator = (float)(intify(v1->getX()) - intify(v2->getX()));
+	float numerator = (float)(intify(v1->getY()) - intify(v2->getY()));
+
+	float slope;
+
+	slope = numerator / denominator;
+
+	/*
+	if (numerator == 0) {
+		if (denominator == 0) {
+			slope = 0;
+		} else {
+			if (denominator < 0) {
+				slope = -slope;
+			}
+		}
+	}
+	*/
+	/*
+	if (denominator == 0) {
+		stringstream ss;
+		ss << "denominator 0: slope: " << slope;
+		Debugger::getInstance().print(ss.str());
+	}
+	*/
+	return slope;
+}
+
+float computeDelta2d(RzVertex3f *v1, RzVertex3f *v2) {
+	float delta = 1.0 / computeSlope2d(v1, v2);
+	return delta;
+}
+
 /*
 bool compareVertexYs(RzVertex3f v1, RzVertex3f v2) {
 	return v1.getY() < v2.getY();
 }
 */
 
-void drawPoint3iForReal(int x, int y, float z, RzColor3f color) {
+void drawPoint2iForReal(int x, int y, float z, RzColor3f *color) {
+
+	/*
+	if (numPointPlots >= maxPointPlots) {
+		// maxed out
+		return;
+	} else {
+		++numPointPlots;
+	}
+	*/
+
 	zBufferSet[x][y] = true;
 	zBuffer[x][y] = z;
-	colorBuffer[x][y] = color;
+	colorBuffer[x][y] = *color;
 	//glVertex2f((float)x, (float)y);
 }
 
-void drawPoint3f(float x, float y, float z, RzColor3f color) {
-	// get buffer coordinates
-	int i_x = round(x);
-	int i_y = round(y);
-	//int i_x = floor(x);
-	//int i_y = floor(y);
-
-	if (i_x >= WINDOW_WIDTH || i_x < 0 || i_y >= WINDOW_HEIGHT || i_y < 0) {
+void drawPoint2i(int x, int y, float z, RzColor3f *color) {
+	if (x >= WINDOW_WIDTH || x < 0 || y >= WINDOW_HEIGHT || y < 0) {
 			// out of bounds
 		return;
 	}
 
 	// check the z buffer
-	if (zBufferSet[i_x][i_y]) {
-		if (z > zBuffer[i_x][i_y]) {
-			drawPoint3iForReal(i_x, i_y, z, color);
+	if (zBufferSet[x][y]) {
+		if (z > zBuffer[x][y]) {
+			drawPoint2iForReal(x, y, z, color);
 		}
 	} else {
-		drawPoint3iForReal(i_x, i_y, z, color);
+		drawPoint2iForReal(x, y, z, color);
 	}
+}
+
+void drawPoint2f(float x, float y, float z, RzColor3f *color) {
+	// get buffer coordinates
+	//int i_x = round1f(x);
+	//int i_y = round1f(y);
+	drawPoint2i(intify(x), intify(y), z, color);
 }
 
 float interpolateZ(float z1, float z2, float z3, float y1, float ys, float y2, float y3, float xa, float xp, float xb) {
 	float za, zb, zp;
+
+	y1 = (float)intify(y1);
+	ys = (float)intify(ys);
+	y2 = (float)intify(y2);
+	y3 = (float)intify(y3);
+	xa = (float)intify(xa);
+	xp = (float)intify(xp);
+	xb = (float)intify(xb);
 
 	za = z1 - (z1 - z2) * (y1 - ys) / (y1 - y2);
 	zb = z1 - (z1 - z3) * (y1 - ys) / (y1 - y3);
@@ -140,54 +185,89 @@ float interpolateZ(float z1, float z2, float z3, float y1, float ys, float y2, f
 	return zp;
 }
 
+/*
 float interpolateZhorizontal(float za, float zb, float xa, float xp, float xb) {
 	float zp;
 
 	zp = zb - (zb - za) * (xb - xp) / (xb - xa);
 	return zp;
 }
+*/
 
 void fillUpperPart(RzVertex3f *top, RzVertex3f *mid, RzVertex3f *bottom, float leftUpperDelta,
 		float rightUpperDelta, RzColor3f *color3f) {
 
-	float yPosition = top->getY();
+	int yPos = intify(top->getY());
+	int endY = intify(mid->getY());
 	float xLeft, xRight;
-	float xPosition;
-	float endY = mid->getY();
-	xLeft = xRight = top->getX();
+	int xMin, xMax, xPos;
+
 	/*
-	if ((float)round(yPosition) > yPosition) {
-		yPosition -= 1.0;
-		endY -= 1.0;
+	int leftmost, rightmost;
+	leftmost = intify(mid->getX());
+	if (intify(bottom->getX()) < leftmost) {
+		leftmost = intify(bottom->getX());
+		rightmost = intify(mid->getX());
+	} else {
+		rightmost = intify(bottom->getX());
 	}
 	*/
-	while (yPosition < endY) {
-		// fill in the line
 
-		xPosition = xLeft;
-		while (xPosition < xRight) {
+	xLeft = xRight = (float)intify(top->getX());
+
+	/*
+	RzColor3f color;
+	color.setRed(1.0);
+	drawPoint2i(intify(top->getX()), intify(top->getY()), top->getZ(), &color);
+	*/
+
+	while (yPos <= endY) {
+		// fill in the line
+		xMin = intify(xLeft);
+		xMax = intify(xRight);
+
+		/*
+		if (xMin < leftmost) {
+			xMin = leftmost;
+		}
+		if (xMax > rightmost) {
+			xMax = rightmost;
+		}
+		*/
+
+		if (xMin < xMax) {
+			if (numScanLines >= maxScanLines) {
+				//return;
+			} else {
+				++numScanLines;
+			}
+		}
+
+		xPos = xMin;
+		while (xPos < xMax) {
+
 			// draw the point
-			drawPoint3f(xPosition, yPosition,
+			drawPoint2i(xPos, yPos,
 					interpolateZ(top->getZ(),
 							mid->getZ(),
 							bottom->getZ(),
 							top->getY(),
-							yPosition,
+							(float)yPos,
 							mid->getY(),
 							bottom->getY(),
 							xLeft,
-							xPosition,
+							(float)xPos,
 							xRight
 							),
-							*color3f);
+							color3f);
 
-			xPosition += 1.0;
+			++xPos;
 		}
 
 		xLeft += leftUpperDelta;
 		xRight += rightUpperDelta;
 
-		yPosition += 1.0;
+		++yPos;
 	}
 }
 
@@ -197,6 +277,8 @@ void fillLine(RzVertex3f *v1, RzVertex3f *v2, RzColor3f *color3f) {
 
 }
 */
+
+/*
 void fillHorizontalLine(RzVertex3f *v1, RzVertex3f *v2, RzColor3f *color3f) {
 	float xLeft, xRight;
 	float xPosition;
@@ -207,54 +289,348 @@ void fillHorizontalLine(RzVertex3f *v1, RzVertex3f *v2, RzColor3f *color3f) {
 	xRight = v2->getX();
 
 	xPosition = xLeft;
-	while (xPosition <= xRight) {
+	while (xPosition < intify(xRight)) {
 		// draw the point
-		drawPoint3f(xPosition, yPosition,
+		drawPoint2f(xPosition, yPosition,
 				interpolateZhorizontal(v1->getZ(),
 						v2->getZ(),
 						xLeft,
 						xPosition,
 						xRight
 						),
-						*color3f);
+						color3f);
 
 		xPosition += 1.0;
+	}
+}
+*/
+
+/*
+void fillLowerPart(RzVertex3f *top, RzVertex3f *mid, RzVertex3f *bottom, float leftLowerSlope,
+		float rightLowerSlope, RzColor3f *color3f) {
+
+	float slopeTopMid, slopeTopBottom, slopeMidBottom;
+	slopeTopMid = computeSlope2d(top, mid);
+	slopeTopBottom = computeSlope2d(top, bottom);
+	slopeMidBottom = computeSlope2d(mid, bottom);
+
+	float deltaTopMid, deltaTopBottom, deltaMidBottom;
+	deltaTopMid = 1.0 / slopeTopMid;
+	deltaTopBottom = 1.0 / slopeTopBottom;
+	deltaMidBottom = 1.0 / slopeMidBottom;
+
+	RzVertex3f *left, *right;
+
+	float leftSlope, rightSlope;
+
+	// slopes can be positive and negative infinity
+
+	// smaller delta is to the right
+	if (deltaMidBottom < deltaTopBottom) {
+		right = mid;
+		left = top;
+		leftSlope = slopeTopBottom;
+		rightSlope = slopeMidBottom;
+	} else {
+		right = top;
+		left = mid;
+		leftSlope = slopeMidBottom;
+		rightSlope = slopeTopBottom;
+	}
+
+	float bLeft, bRight;
+
+	if (isfinite(leftSlope)) {
+		bLeft = bottom->getY() - leftSlope * left->getX();
+	}
+	if (isfinite(rightSlope)) {
+		bRight = bottom->getY() - rightSlope * right->getX();
+	}
+
+	int yPos = intify(bottom->getY());
+	int yEnd = intify(mid->getY());
+	int xPos;
+	float xLeft, xRight;
+	int xMin, xMax;
+
+
+	//xMin = xMaxLeft = xRight = (float)intify(bottom->getX());
+
+	//RzColor3f color;
+	//color.setRed(1.0);
+	//drawPoint2i(intify(bottom->getX()), intify(bottom->getY()), bottom->getZ(), &color);
+
+	while (yPos > yEnd) {
+		// fill in the line
+
+		if (isfinite(leftSlope)) {
+			xLeft = ((float)yPos - bLeft) / leftSlope;
+		} else {
+			xLeft = (float)intify(left->getX());
+		}
+
+		if (isfinite(rightSlope)) {
+			xRight = ((float)yPos - bRight) / rightSlope;
+		} else {
+			xRight = (float)intify(right->getX());
+		}
+		xMin = intify(xLeft);
+		xMax = intify(xRight);
+
+		if (xMin < xMax) {
+			if (numScanLines >= maxScanLines) {
+				return;
+			} else {
+				++numScanLines;
+			}
+		}
+
+		xPos = xMin;
+		while (xPos < xMax) {
+			// draw the point
+			drawPoint2i(xPos, yPos,
+					interpolateZ(bottom->getZ(),
+							mid->getZ(),
+							top->getZ(),
+							bottom->getY(),
+							(float)yPos,
+							mid->getY(),
+							top->getY(),
+							xLeft,
+							(float)xPos,
+							xRight
+							),
+							color3f);
+
+			++xPos;
+		}
+
+		--yPos;
+	}
+}
+*/
+
+void fillFlatTop(RzVertex3f *top, RzVertex3f *mid, RzVertex3f *bottom, RzVertex3f *left, RzVertex3f *right,
+		float leftSlope, float rightSlope, RzColor3f *color3f) {
+
+	float bLeft, bRight;
+
+	if (isfinite(leftSlope)) {
+		bLeft = (float)intify(left->getY()) - leftSlope * (float)intify(left->getX());
+	}
+	if (isfinite(rightSlope)) {
+		bRight = (float)intify(right->getY()) - rightSlope * (float)intify(right->getX());
+	}
+
+	int yPos = intify(bottom->getY());
+	int yEnd = intify(mid->getY());
+	int xPos;
+	float xLeft, xRight;
+	int xMin, xMax;
+
+	//xMin = xMaxLeft = xRight = (float)intify(bottom->getX());
+
+	//RzColor3f color;
+	//color.setRed(1.0);
+	//drawPoint2i(intify(bottom->getX()), intify(bottom->getY()), bottom->getZ(), &color);
+
+	while (yPos > yEnd) {
+		// fill in the line
+
+		if (isfinite(leftSlope)) {
+			xLeft = ((float)yPos - bLeft) / leftSlope;
+		} else {
+			xLeft = (float)intify(left->getX());
+		}
+
+		if (isfinite(rightSlope)) {
+			xRight = ((float)yPos - bRight) / rightSlope;
+		} else {
+			xRight = (float)intify(right->getX());
+		}
+
+		xMin = intify(xLeft);
+		xMax = intify(xRight);
+
+		if (xMin < xMax) {
+			if (numScanLines >= maxScanLines) {
+				return;
+			} else {
+				++numScanLines;
+			}
+		}
+
+		xPos = xMin;
+		while (xPos < xMax) {
+			// draw the point
+			drawPoint2i(xPos, yPos,
+					interpolateZ(bottom->getZ(),
+							mid->getZ(),
+							top->getZ(),
+							bottom->getY(),
+							(float)yPos,
+							mid->getY(),
+							top->getY(),
+							xLeft,
+							(float)xPos,
+							xRight
+							),
+							color3f);
+
+			++xPos;
+		}
+
+		--yPos;
+	}
+}
+
+void fillFlatBottom(RzVertex3f *top, RzVertex3f *mid, RzVertex3f *bottom, RzVertex3f *left, RzVertex3f *right,
+		float leftSlope, float rightSlope, RzColor3f *color3f) {
+
+	float bLeft, bRight;
+
+	if (isfinite(leftSlope)) {
+		bLeft = (float)intify(left->getY()) - leftSlope * (float)intify(left->getX());
+	}
+	if (isfinite(rightSlope)) {
+		bRight = (float)intify(right->getY()) - rightSlope * (float)intify(right->getX());
+	}
+
+	int yPos = intify(top->getY());
+	int yEnd = intify(mid->getY());
+	int xPos;
+	float xLeft, xRight;
+	int xMin, xMax;
+
+	//xMin = xMaxLeft = xRight = (float)intify(bottom->getX());
+
+	//RzColor3f color;
+	//color.setRed(1.0);
+	//drawPoint2i(intify(bottom->getX()), intify(bottom->getY()), bottom->getZ(), &color);
+
+	while (yPos <= yEnd) {
+		// fill in the line
+
+		if (isfinite(leftSlope)) {
+			xLeft = ((float)yPos - bLeft) / leftSlope;
+		} else {
+			xLeft = (float)intify(left->getX());
+		}
+
+		if (isfinite(rightSlope)) {
+			xRight = ((float)yPos - bRight) / rightSlope;
+		} else {
+			xRight = (float)intify(right->getX());
+		}
+
+		xMin = intify(xLeft);
+		xMax = intify(xRight);
+
+		if (xMin < xMax) {
+			if (numScanLines >= maxScanLines) {
+				return;
+			} else {
+				++numScanLines;
+			}
+		}
+
+		xPos = xMin;
+		while (xPos < xMax) {
+
+			// draw the point
+			drawPoint2i(xPos, yPos,
+					interpolateZ(top->getZ(),
+							mid->getZ(),
+							bottom->getZ(),
+							top->getY(),
+							(float)yPos,
+							mid->getY(),
+							bottom->getY(),
+							xLeft,
+							(float)xPos,
+							xRight
+							),
+							color3f);
+
+			++xPos;
+		}
+
+		++yPos;
 	}
 }
 
 void fillLowerPart(RzVertex3f *top, RzVertex3f *mid, RzVertex3f *bottom, float leftLowerDelta,
 		float rightLowerDelta, RzColor3f *color3f) {
 
-	float yPosition = bottom->getY();
+	int yPos = intify(bottom->getY());
+	int yEnd = intify(mid->getY());
 	float xLeft, xRight;
-	float xPosition;
-	xLeft = xRight = bottom->getX();
-	while (yPosition > mid->getY()) {
+	int xPos;
+	int xMin, xMax;
+	xLeft = xRight = (float)intify(bottom->getX());
+
+	/*
+	int leftmost, rightmost;
+	leftmost = intify(mid->getX());
+	if (intify(top->getX()) < leftmost) {
+		leftmost = intify(top->getX());
+		rightmost = intify(mid->getX());
+	} else {
+		rightmost = intify(top->getX());
+	}
+	*/
+
+	//RzColor3f color;
+	//color.setRed(1.0);
+	//drawPoint2i(intify(bottom->getX()), intify(bottom->getY()), bottom->getZ(), &color);
+
+	while (yPos > yEnd) {
 		// fill in the line
 
-		xPosition = xLeft;
-		while (xPosition < xRight) {
+		xMin = intify(xLeft);
+		xMax = intify(xRight);
+
+		/*
+		if (xMin < leftmost) {
+			xMin = leftmost;
+		}
+		if (xMax > rightmost) {
+			xMax = rightmost;
+		}
+		*/
+
+		if (xMin < xMax) {
+			if (numScanLines >= maxScanLines) {
+				//return;
+			} else {
+				++numScanLines;
+			}
+		}
+
+		xPos = xMin;
+		while (xPos < xMax) {
 			// draw the point
-			drawPoint3f(xPosition, yPosition,
+			drawPoint2i(xPos, yPos,
 					interpolateZ(bottom->getZ(),
 							mid->getZ(),
 							top->getZ(),
 							bottom->getY(),
-							yPosition,
+							(float)yPos,
 							mid->getY(),
 							top->getY(),
 							xLeft,
-							xPosition,
+							(float)xPos,
 							xRight
 							),
-							*color3f);
+							color3f);
 
-			xPosition += 1.0;
+			++xPos;
 		}
 
 		xLeft -= leftLowerDelta;
 		xRight -= rightLowerDelta;
-		yPosition += -1.0;
+
+		--yPos;
 	}
 }
 
@@ -287,13 +663,19 @@ void main_loop_function()
 	float deltaTopBottom;
 	float deltaMidBottom;
 
+	bool draw_triangles = false;
 	//float angle;
 	//float xAdd = 0;
 	//float yAdd = 0;
 	//float zAdd = 0.0;
 
+	int lastNumScanLines = 0;
+
 	while(events())
 	{
+		//numPointPlots = 0;
+		numScanLines = 0;
+
 		// initialize the buffers
 		for (x = 0; x < WINDOW_WIDTH; ++x) {
 			for (y = 0; y < WINDOW_HEIGHT; ++y) {
@@ -325,7 +707,7 @@ void main_loop_function()
 		Debugger::getInstance().print(ss.str());
 		*/
 
-		//glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 		//glClear(GL_COLOR_BUFFER_BIT);
 		//glLoadIdentity();
 		//glTranslatef(0,0, -10);
@@ -385,46 +767,46 @@ void main_loop_function()
 					}
 
 					// sort vertices with same y
-					if (topVertex->getY() == bottomVertex->getY()) {
+					if (intify(topVertex->getY()) == intify(bottomVertex->getY())) {
 						// perfectly flat line
 						// sort by x value
-						if (midVertex->getX() > bottomVertex->getX()) {
+						if (intify(midVertex->getX()) > intify(bottomVertex->getX())) {
 							swapPointers((void**)&midVertex, (void**)&bottomVertex);
 						}
-						if (topVertex->getX() > midVertex->getX()) {
+						if (intify(topVertex->getX()) > intify(midVertex->getX())) {
 							swapPointers((void**)&topVertex, (void**)&midVertex);
 
-							if (midVertex->getX() > bottomVertex->getX()) {
+							if (intify(midVertex->getX()) > intify(bottomVertex->getX())) {
 								swapPointers((void**)&midVertex, (void**)&bottomVertex);
 							}
 						}
-					} else if (topVertex->getY() == midVertex->getY()) {
+					} else if (intify(topVertex->getY()) == intify(midVertex->getY())) {
 						// flat on top
-						if (topVertex->getX() > midVertex->getX()) {
+						if (intify(topVertex->getX()) > intify(midVertex->getX())) {
 							swapPointers((void**)&topVertex, (void**)&midVertex);
 						}
-					} else if (midVertex->getY() == bottomVertex->getY()) {
+					} else if (intify(midVertex->getY()) == intify(bottomVertex->getY())) {
 						// flat on bottom
-						if (bottomVertex->getX() > midVertex->getX()) {
+						if (intify(bottomVertex->getX()) > intify(midVertex->getX())) {
 							swapPointers((void**)&bottomVertex, (void**)&midVertex);
 						}
 					}
 
-					// what about the case where the triangle is perfectly thin?
+					if (draw_triangles) {
+						glBegin(GL_TRIANGLES);
+						glColor3f(1.0, 0, 0);
+						glVertex2f(intify(bottomVertex->getX()),
+								intify(bottomVertex->getY()));
+						glColor3f(0, 1.0, 0);
+						glVertex2f(intify(midVertex->getX()),
+								intify(midVertex->getY()));
+						glColor3f(0, 0, 1.0);
+						glVertex2f(intify(topVertex->getX()),
+								intify(topVertex->getY()));
+						glEnd();
+					}
 
-					/*
-					glColor3f(1.0, 0, 0);
-					glVertex2f(round(bottomVertex->getX()),
-							round(bottomVertex->getY()));
-					glColor3f(0, 1.0, 0);
-					glVertex2f(round(midVertex->getX()),
-							round(midVertex->getY()));
-					glColor3f(0, 0, 1.0);
-					glVertex2f(round(topVertex->getX()),
-							round(topVertex->getY()));
-							*/
-
-					/*
+						/*
 					if (glGetError() != GL_NO_ERROR) {
 						Debugger::getInstance().print("gl error");
 					}
@@ -435,6 +817,165 @@ void main_loop_function()
 					slopeTopBottom = computeSlope2d(topVertex, bottomVertex);
 					slopeMidBottom = computeSlope2d(midVertex, bottomVertex);
 
+					RzVertex3f *bottomLeft, *bottomRight, *topLeft, *topRight;
+
+					float bottomLeftSlope, bottomRightSlope, topLeftSlope, topRightSlope;
+
+					if (slopeTopMid == 0) {
+							// top and mid are on same y, different x
+
+						if (slopeTopBottom == 0) {
+								// all points on same y
+							// ignore
+						} else if (isnan(slopeTopBottom) || isnan(slopeMidBottom)) {
+							// ignore
+						} else {
+							if (intify(topVertex->getX()) < intify(midVertex->getX())) {
+								topLeft = topVertex;
+								topRight = midVertex;
+								topLeftSlope = slopeTopBottom;
+								topRightSlope = slopeMidBottom;
+							} else {
+								topLeft = midVertex;
+								topRight = topVertex;
+								topLeftSlope = slopeMidBottom;
+								topRightSlope = slopeTopBottom;
+							}
+
+							fillFlatTop(topVertex, midVertex, bottomVertex, topLeft, topRight,
+									topLeftSlope, topRightSlope, color3f);
+						}
+					} else if (isnan(slopeTopMid)) {
+							// top and mid are the same point
+						// ignore
+					} else if (!isfinite(slopeTopMid)) {
+							// top and mid are the same horizontal
+
+						if (isnan(slopeMidBottom)) {
+							// ignore
+						} else if (!isfinite(slopeMidBottom)) {
+							// ignore
+						} else {
+							if (intify(bottomVertex->getX()) > intify(midVertex->getX())) {
+								bottomLeft = midVertex;
+								bottomLeftSlope = slopeTopMid;
+								bottomRight = bottomVertex;
+								bottomRightSlope = slopeTopBottom;
+
+							} else {
+								bottomRight = midVertex;
+								bottomLeft = bottomVertex;
+								bottomRightSlope = slopeTopMid;
+								bottomLeftSlope = slopeTopBottom;
+							}
+
+							fillFlatBottom(topVertex, midVertex, bottomVertex, bottomLeft, bottomRight,
+									bottomLeftSlope, bottomRightSlope, color3f);
+
+							if (slopeMidBottom == 0) {
+								// ignore drawing flat top triangle
+							} else {
+								if (intify(bottomVertex->getX()) > intify(midVertex->getX())) {
+									topLeft = midVertex;
+									topLeftSlope = slopeMidBottom;
+									topRight = topVertex;
+									topRightSlope = slopeTopBottom;
+
+								} else {
+									topRight = midVertex;
+									topLeft = topVertex;
+									topRightSlope = slopeMidBottom;
+									topLeftSlope = slopeTopBottom;
+								}
+
+								fillFlatTop(topVertex, midVertex, bottomVertex, topLeft, topRight,
+										topLeftSlope, topRightSlope, color3f);
+							}
+						}
+					} else {
+						// mid is below top but not horizontal or vertical to it
+						if (isnan(slopeMidBottom)) {
+							// ignore
+						} else if (slopeMidBottom == 0) {
+							// just fill the flat bottom
+							if (intify(bottomVertex->getX()) > intify(midVertex->getX())) {
+								bottomLeft = midVertex;
+								bottomLeftSlope = slopeTopMid;
+								bottomRight = bottomVertex;
+								bottomRightSlope = slopeTopBottom;
+
+							} else {
+								bottomRight = midVertex;
+								bottomLeft = bottomVertex;
+								bottomRightSlope = slopeTopMid;
+								bottomLeftSlope = slopeTopBottom;
+							}
+
+							fillFlatBottom(topVertex, midVertex, bottomVertex, bottomLeft, bottomRight,
+									bottomLeftSlope, bottomRightSlope, color3f);
+						} else {
+							// figure out which point goes left and which goes right from top
+
+							deltaTopMid = 1.0 / slopeTopMid;
+							deltaTopBottom = 1.0 / slopeTopBottom;
+
+							bool display = false;
+							if ((numScanLines + 1) == maxScanLines && lastNumScanLines != numScanLines) {
+								ss.clear();
+								display = true;
+								ss << "deltaTopMid: " << deltaTopMid << " deltaTopBottom: " << deltaTopBottom;
+								ss << " top: " << intify(topVertex->getX()) << ", " << intify(topVertex->getY());
+								ss << " mid: " << intify(midVertex->getX()) << ", " << intify(midVertex->getY());
+								ss << " bottom: " << intify(bottomVertex->getX()) << ", " << intify(bottomVertex->getY());
+								ss << endl;
+								Debugger::getInstance().print(ss.str());
+								lastNumScanLines = numScanLines;
+							}
+
+							if (deltaTopMid < deltaTopBottom) {
+								if (display) {
+									ss.clear();
+									ss << "deltaTopMid < deltaTopBottom" << endl;
+									Debugger::getInstance().print(ss.str());
+								}
+								// top to mid is left
+								topLeft = midVertex;
+								topRight = topVertex;
+								topLeftSlope = slopeMidBottom;
+								topRightSlope = slopeTopBottom;
+
+								bottomLeft = midVertex;
+								bottomRight = bottomVertex;
+								bottomLeftSlope = slopeTopMid;
+								bottomRightSlope = slopeTopBottom;
+
+							} else {
+								topLeft = topVertex;
+								topLeftSlope = slopeTopBottom;
+								topRight = midVertex;
+								topRightSlope = slopeMidBottom;
+
+								bottomLeft = bottomVertex;
+								bottomRight = midVertex;
+								bottomLeftSlope = slopeTopBottom;
+								bottomRightSlope = slopeTopMid;
+							}
+							if (display) {
+								ss.clear();
+								ss << "isfinite(bottomRightSlope): " << isfinite(bottomRightSlope);
+								ss << " ";
+								ss << "isfinite(bottomLeftSlope): " << isfinite(bottomLeftSlope);
+								ss << endl;
+							}
+
+							fillFlatTop(topVertex, midVertex, bottomVertex, topLeft, topRight,
+									topLeftSlope, topRightSlope, color3f);
+							fillFlatBottom(topVertex, midVertex, bottomVertex, bottomLeft, bottomRight,
+									bottomLeftSlope, bottomRightSlope, color3f);
+						}
+					}
+
+					/*
 					// figure out which side is left and right
 					// compare deltas
 					deltaTopMid = 1.0 / slopeTopMid;
@@ -445,28 +986,40 @@ void main_loop_function()
 
 					if (topVertex->getY() == bottomVertex->getY()) {
 						// perfectly flat line
-						fillHorizontalLine(topVertex, midVertex, color3f);
-						fillHorizontalLine(midVertex, bottomVertex, color3f);
+						//fillHorizontalLine(topVertex, midVertex, color3f);
+						//fillHorizontalLine(midVertex, bottomVertex, color3f);
 
-					} else if (topVertex->getY() == midVertex->getY()) {
+					} else if (slopeTopMid == 0) {
 						// flat on top
 						fillLowerPart(topVertex, midVertex, bottomVertex,
 								deltaTopBottom, deltaMidBottom, color3f);
-					} else if (midVertex->getY() == bottomVertex->getY()) {
+					} else if (deltaMidBottom == 0) {
 						// flat on bottom
 						fillUpperPart(topVertex, midVertex, bottomVertex,
 								deltaTopBottom, deltaTopMid, color3f);
+//						fillFlatBottom(topVertex, midVertex, bottomVertex, bottomVertex, midVertex,
+//								slopeTopBottom, slopeTopMid, color3f);
 					} else if (deltaTopMid < deltaTopBottom) {
 						fillUpperPart(topVertex, midVertex, bottomVertex,
 								deltaTopMid, deltaTopBottom, color3f);
 						fillLowerPart(topVertex, midVertex, bottomVertex,
 								deltaMidBottom, deltaTopBottom, color3f);
+//						fillFlatBottom(topVertex, midVertex, bottomVertex, midVertex, bottomVertex,
+//								slopeTopMid, slopeTopBottom, color3f);
+//						fillFlatTop(topVertex, midVertex, bottomVertex, midVertex, topVertex,
+//								slopeMidBottom, slopeTopBottom, color3f);
 					} else {
 						fillUpperPart(topVertex, midVertex, bottomVertex,
 								deltaTopBottom, deltaTopMid, color3f);
 						fillLowerPart(topVertex, midVertex, bottomVertex,
 								deltaTopBottom, deltaMidBottom, color3f);
+
+//						fillFlatBottom(topVertex, midVertex, bottomVertex, bottomVertex, midVertex,
+//								slopeTopBottom, slopeTopMid, color3f);
+//						fillFlatTop(topVertex, midVertex, bottomVertex, topVertex, midVertex,
+//								slopeTopBottom, slopeMidBottom, color3f);
 					}
+					*/
 				}
 			}
 		}
@@ -480,29 +1033,35 @@ void main_loop_function()
 						colorBuffer[x][y].getGreen(),
 						colorBuffer[x][y].getBlue());
 
-				glVertex2d((float)x, (float)y);
+				//glVertex3f((float)x, (float)y, 0.5);
+				glVertex2f((float)x, (float)y);
+
 			}
 		}
 		glEnd();
 
 		SDL_GL_SwapBuffers();
-		/*
 		// Check keypresses
 		if(key[SDLK_RIGHT]) {
+			//++maxPointPlots;
+			++maxScanLines;
 			//angle-=0.5;
 		}
 		if(key[SDLK_LEFT]) {
+			//--maxPointPlots;
+			--maxScanLines;
 			//angle+=0.5;
 		}
 		if (key[SDLK_UP]) {
+			draw_triangles = true;
 			//zAdd += 10.0;
-			Debugger::getInstance().print("up key");
+			//Debugger::getInstance().print("up key");
 		}
 		if (key[SDLK_DOWN]) {
+			draw_triangles = false;
 			//zAdd -= 10.0;
-			Debugger::getInstance().print("down key");
+			//Debugger::getInstance().print("down key");
 		}
-		*/
 	}
 }
 
@@ -513,12 +1072,14 @@ void GL_Setup(int width, int height)
 	glMatrixMode(GL_PROJECTION);
 	glLoadIdentity();
 	glOrtho(0, width, height, 0, 0, 1);
-	//glEnable(GL_DEPTH_TEST);
-	glDisable(GL_DEPTH_TEST);
+	glEnable(GL_DEPTH_TEST);
+	//glDisable(GL_DEPTH_TEST);
 	//gluPerspective(45, (float)width/height, 0.1, 100);
 	glMatrixMode(GL_MODELVIEW);
 	glLoadIdentity();
 	glTranslatef(0.375, 0.375, 0);
+
+	glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 }
 
 int main(int argc, char *argv[]) {
@@ -592,8 +1153,8 @@ int main(int argc, char *argv[]) {
 		}
 	}
 
-	boundingXMin -= 0.1 * (boundingXMax - boundingXMin);
-	boundingXMax += 0.1 * (boundingXMax - boundingXMin);
+	boundingXMin -= 0.01 * (boundingXMax - boundingXMin);
+	boundingXMax += 0.01 * (boundingXMax - boundingXMin);
 
 	for (polygonGroupIndex = 0; polygonGroupIndex < collection->polygonGroups.size(); ++polygonGroupIndex) {
 		polygonGroup = &collection->polygonGroups[polygonGroupIndex];
@@ -615,4 +1176,6 @@ int main(int argc, char *argv[]) {
 	main_loop_function();
 
 	delete collection;
+
+	return 0;
 }
