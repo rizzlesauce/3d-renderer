@@ -15,7 +15,9 @@
 class RzPolygonGroup {
 public:
 	RzPolygonGroup();
+	RzPolygonGroup(const RzPolygonGroup&);
 	virtual ~RzPolygonGroup();
+	void deepCopy(const RzPolygonGroup&);
 
 	vector<RzPolygon> polygons;
 	RzColor3f color;

@@ -14,7 +14,9 @@
 class RzPolygonGroupCollection {
 public:
 	RzPolygonGroupCollection();
+	RzPolygonGroupCollection(const RzPolygonGroupCollection&);
 	virtual ~RzPolygonGroupCollection();
+	void deepCopy(const RzPolygonGroupCollection& other);
 
 	vector<RzPolygonGroup> polygonGroups;
 };

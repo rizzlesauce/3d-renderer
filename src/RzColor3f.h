@@ -11,8 +11,9 @@
 class RzColor3f {
 public:
 	RzColor3f();
+	RzColor3f(const RzColor3f&);
 	virtual ~RzColor3f();
-	float *red, *green, *blue;
+	void deepCopy(const RzColor3f&);
 
 	float getRed();
 	float getGreen();

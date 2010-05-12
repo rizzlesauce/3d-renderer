@@ -11,16 +11,26 @@
 class RzVertex3f {
 public:
 	RzVertex3f();
+	RzVertex3f(const RzVertex3f&);
 	virtual ~RzVertex3f();
-	float *x, *y, *z;
 
-	float getX();
-	float getY();
-	float getZ();
+	float getX() const;
+	float getY() const;
+	float getZ() const;
+
+	float getOrthoX() const;
+	float getOrthoY() const;
+	float getOrthoZ() const;
 
 	void setX(float);
 	void setY(float);
 	void setZ(float);
+
+	void setOrthoX(float);
+	void setOrthoY(float);
+	void setOrthoZ(float);
+
+	void deepCopy(const RzVertex3f&);
 
 	float coordinates[6];
 };

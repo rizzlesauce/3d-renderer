@@ -12,6 +12,17 @@ RzPolygonGroupCollection::RzPolygonGroupCollection() {
 
 }
 
+RzPolygonGroupCollection::RzPolygonGroupCollection(const RzPolygonGroupCollection& other) {
+	deepCopy(other);
+}
+
 RzPolygonGroupCollection::~RzPolygonGroupCollection() {
 	// TODO Auto-generated destructor stub
+}
+
+void RzPolygonGroupCollection::deepCopy(const RzPolygonGroupCollection& other) {
+	polygonGroups.resize(other.polygonGroups.size());
+	for (unsigned int i = 0; i < other.polygonGroups.size(); ++i) {
+		polygonGroups[i].deepCopy(other.polygonGroups[i]);
+	}
 }

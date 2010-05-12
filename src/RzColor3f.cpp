@@ -10,9 +10,10 @@
 
 RzColor3f::RzColor3f() {
 	// TODO Auto-generated constructor stub
-	red = &components[0];
-	green = &components[1];
-	blue = &components[2];
+}
+
+RzColor3f::RzColor3f(const RzColor3f& other) {
+	deepCopy(other);
 }
 
 RzColor3f::~RzColor3f() {
@@ -29,6 +30,12 @@ float RzColor3f::getGreen() {
 
 float RzColor3f::getBlue() {
 	return components[2];
+}
+
+void RzColor3f::deepCopy(const RzColor3f& other) {
+	for (unsigned int i = 0; i < 3; ++i) {
+		components[i] = other.components[i];
+	}
 }
 
 unsigned int RzColor3f::getScaledRed() {

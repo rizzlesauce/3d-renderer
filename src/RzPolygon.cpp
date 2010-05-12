@@ -12,8 +12,19 @@ RzPolygon::RzPolygon() {
 
 }
 
+RzPolygon::RzPolygon(const RzPolygon& other) {
+	deepCopy(other);
+}
+
 RzPolygon::~RzPolygon() {
 	// TODO Auto-generated destructor stub
+}
+
+void RzPolygon::deepCopy(const RzPolygon& other) {
+	vertices.resize(other.vertices.size());
+	for (unsigned int i = 0; i < other.vertices.size(); ++i) {
+		vertices[i].deepCopy(other.vertices[i]);
+	}
 }
 
 /**

@@ -12,6 +12,19 @@ RzPolygonGroup::RzPolygonGroup() {
 
 }
 
+RzPolygonGroup::RzPolygonGroup(const RzPolygonGroup& other) {
+	deepCopy(other);
+}
+
 RzPolygonGroup::~RzPolygonGroup() {
 	// TODO Auto-generated destructor stub
+}
+
+void RzPolygonGroup::deepCopy(const RzPolygonGroup& other) {
+	color.deepCopy(other.color);
+	polygons.resize(other.polygons.size());
+
+	for (unsigned int i = 0; i < other.polygons.size(); ++i) {
+		polygons[i].deepCopy(other.polygons[i]);
+	}
 }

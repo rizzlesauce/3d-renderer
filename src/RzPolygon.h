@@ -16,8 +16,10 @@ using namespace std;
 class RzPolygon {
 public:
 	RzPolygon();
+	RzPolygon(const RzPolygon&);
 	virtual ~RzPolygon();
 	vector<RzTriangle> getTriangles();
+	void deepCopy(const RzPolygon&);
 
 	vector<RzVertex3f> vertices;
 };

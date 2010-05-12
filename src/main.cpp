@@ -34,6 +34,7 @@ int maxScanLines = 1000000000;
 //int maxScanLines = 0;
 
 RzPolygonGroupCollection *collection;
+RzPolygonGroupCollection *perspectified;
 
 // Process pending events
 bool events() {
@@ -639,12 +640,12 @@ void main_loop_function()
 	unsigned int polygonGroupIndex;
 	unsigned int polygonIndex;
 	unsigned int triangleIndex;
-	//unsigned int vertexIndex;
+	unsigned int vertexIndex;
 	unsigned int x, y;
 	RzPolygonGroup *polygonGroup;
 	RzPolygon *polygon;
 	RzTriangle *triangle;
-	//RzVertex3f *vertex3f;
+	RzVertex3f *vertex3f;
 	RzColor3f *color3f;
 	//float boundingWidth;
 	//float boundingHeight;
@@ -671,6 +672,10 @@ void main_loop_function()
 
 	int lastNumScanLines = 0;
 
+	float eye_z = 1.0;
+	float near_z = 0.0;
+	float far_z = -1000.0;
+
 	while(events())
 	{
 		//numPointPlots = 0;
@@ -685,6 +690,9 @@ void main_loop_function()
 				colorBuffer[x][y].setBlue(1.0);
 			}
 		}
+
+		// create the perspectified version of the model
+		perspectified = new RzPolygonGroupCollection(*collection);
 
 		/*
 		ss.clear();
@@ -726,8 +734,8 @@ void main_loop_function()
 		glColor3ub(255, 255, 000); glVertex2f(200, 200);
 		*/
 
-		for (polygonGroupIndex = 0; polygonGroupIndex < collection->polygonGroups.size(); ++polygonGroupIndex) {
-			polygonGroup = &collection->polygonGroups[polygonGroupIndex];
+		for (polygonGroupIndex = 0; polygonGroupIndex < perspectified->polygonGroups.size(); ++polygonGroupIndex) {
+			polygonGroup = &perspectified->polygonGroups[polygonGroupIndex];
 			color3f = &polygonGroup->color;
 
 			/*
@@ -740,6 +748,28 @@ void main_loop_function()
 			// draw the polygons
 			for (polygonIndex = 0; polygonIndex < polygonGroup->polygons.size(); ++polygonIndex) {
 				polygon = &polygonGroup->polygons[polygonIndex];
+
+				// convert vertices to perspective
+				for (vertexIndex = 0; vertexIndex < polygon->vertices.size(); ++vertexIndex) {
+					vertex3f = &polygon->vertices[vertexIndex];
+
+					float big_z = eye_z - vertex3f->getZ();
+					float big_x = vertex3f->getX();
+					float big_y = vertex3f->getY();
+					float little_z = eye_z - near_z;
+
+					float factor = little_z / big_z;
+
+					float new_x = vertex3f->getX() * factor;
+					float new_y = vertex3f->getY() * factor;
+
+					new_x = (float)WINDOW_WIDTH / 2.0 + new_x;
+					new_y = (float)WINDOW_HEIGHT / 2.0 - new_y;
+
+					vertex3f->setX(new_x);
+					vertex3f->setY(new_y);
+				}
+
 
 				triangles = polygon->getTriangles();
 
@@ -1053,15 +1083,19 @@ void main_loop_function()
 			//angle+=0.5;
 		}
 		if (key[SDLK_UP]) {
-			draw_triangles = true;
+			//draw_triangles = true;
 			//zAdd += 10.0;
-			//Debugger::getInstance().print("up key");
+			Debugger::getInstance().print("up key");
+			near_z -= 0.1;
 		}
 		if (key[SDLK_DOWN]) {
-			draw_triangles = false;
+			//draw_triangles = false;
 			//zAdd -= 10.0;
-			//Debugger::getInstance().print("down key");
+			Debugger::getInstance().print("down key");
+			near_z += 0.1;
 		}
+
+		delete perspectified;
 	}
 }
 
@@ -1084,18 +1118,18 @@ void GL_Setup(int width, int height)
 
 int main(int argc, char *argv[]) {
 	// Initialize SDL with best video mode
-	unsigned int polygonGroupIndex;
-	unsigned int polygonIndex;
-	unsigned int vertexIndex;
-	RzPolygonGroup *polygonGroup;
-	RzPolygon *polygon;
-	RzVertex3f *vertex3f;
-	float boundingXMin, boundingXMax, boundingYMin, boundingYMax;
+	//unsigned int polygonGroupIndex;
+	//unsigned int polygonIndex;
+	//unsigned int vertexIndex;
+	//RzPolygonGroup *polygonGroup;
+	//RzPolygon *polygon;
+	//RzVertex3f *vertex3f;
+	//float boundingXMin, boundingXMax, boundingYMin, boundingYMax;
 	//float boundingWidth;
 	//float boundingHeight;
 	//float scaleFactor;
 	stringstream ss;
-	bool first;
+	//bool first;
 	//int numLogs = 20;
 	vector<RzTriangle> triangles;
 
@@ -1123,6 +1157,7 @@ int main(int argc, char *argv[]) {
 	colorBuffer.resize(WINDOW_WIDTH, vector<RzColor3f>(WINDOW_HEIGHT));
 	*/
 
+	/*
 	// find the bounding box
 	first = true;
 	for (polygonGroupIndex = 0; polygonGroupIndex < collection->polygonGroups.size(); ++polygonGroupIndex) {
@@ -1172,6 +1207,7 @@ int main(int argc, char *argv[]) {
 			}
 		}
 	}
+	*/
 
 	main_loop_function();
 
