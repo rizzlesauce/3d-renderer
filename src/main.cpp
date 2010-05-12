@@ -672,8 +672,8 @@ void main_loop_function()
 
 	int lastNumScanLines = 0;
 
-	float eye_z = 1.0;
-	float near_z = 0.0;
+	float eye_z = 10.0;
+	float near_z = 9.9;
 	float far_z = -1000.0;
 
 	while(events())
@@ -759,9 +759,11 @@ void main_loop_function()
 					float little_z = eye_z - near_z;
 
 					float factor = little_z / big_z;
+					float other_factor = 200.0;
 
-					float new_x = vertex3f->getX() * factor;
-					float new_y = vertex3f->getY() * factor;
+					float new_x = vertex3f->getX() * factor * other_factor;
+					float new_y = vertex3f->getY() * factor * other_factor;
+
 
 					new_x = (float)WINDOW_WIDTH / 2.0 + new_x;
 					new_y = (float)WINDOW_HEIGHT / 2.0 - new_y;
@@ -1086,13 +1088,15 @@ void main_loop_function()
 			//draw_triangles = true;
 			//zAdd += 10.0;
 			Debugger::getInstance().print("up key");
-			near_z -= 0.1;
+			//eye_z -= 0.1;
+			near_z -= 0.01;
 		}
 		if (key[SDLK_DOWN]) {
 			//draw_triangles = false;
 			//zAdd -= 10.0;
 			Debugger::getInstance().print("down key");
-			near_z += 0.1;
+			//eye_z += 0.1;
+			near_z += 0.01;
 		}
 
 		delete perspectified;
