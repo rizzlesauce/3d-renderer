@@ -654,7 +654,6 @@ void main_loop_function()
 	//float scaleFactor;
 	stringstream ss;
 	RzVertex3f *midVertex, *topVertex, *bottomVertex;
-	//int numLogs = 20;
 	vector<RzTriangle> triangles;
 	float slopeTopMid;
 	float slopeTopBottom;
@@ -666,7 +665,7 @@ void main_loop_function()
 	float deltaTopBottom;
 	float deltaMidBottom;
 	float scale_factor = 1.0;
-	float scale_amount = 0.01;
+	float scale_amount = 0.005;
 	MATRIX1X4 vector_matrix, result_1x4;
 
 	bool draw_triangles = false;
@@ -678,7 +677,9 @@ void main_loop_function()
 	int lastNumScanLines = 0;
 
 	float eye_z = 10.0;
-	float near_z = 9.9;
+	float near_z = 9.7;
+	float move_amount = 0.1;
+	float other_factor = 700.0;
 	float far_z = -1000.0;
 
 	float rotation = 0.0;
@@ -712,6 +713,18 @@ void main_loop_function()
 				0, 0, scale_factor, 0,
 				0, 0, 0, 1
 				);
+
+		Mat_Mul_4X4(&transform_matrix, &model_transform_matrix, &result_4x4);
+		MAT_COPY_4X4(&result_4x4, &model_transform_matrix);
+
+		float cos_rot = cos(rotation);
+		float sin_rot = sin(rotation);
+
+		Mat_Init_4X4(&transform_matrix,
+				cos_rot, 0, sin_rot, 0,
+				0, 1, 0, 0,
+				-sin_rot, 0, cos_rot, 0,
+				0, 0, 0, 1);
 
 		Mat_Mul_4X4(&transform_matrix, &model_transform_matrix, &result_4x4);
 		MAT_COPY_4X4(&result_4x4, &model_transform_matrix);
@@ -794,14 +807,13 @@ void main_loop_function()
 					vertex3f->setZ(sin(new_angle) * radius);
 					*/
 
-
+					// make perspective
 					float big_z = eye_z - vertex3f->getZ();
 					float big_x = vertex3f->getX();
 					float big_y = vertex3f->getY();
 					float little_z = eye_z - near_z;
 
 					float factor = little_z / big_z;
-					float other_factor = 400.0;
 
 					float new_x = vertex3f->getX() * factor * other_factor;
 					float new_y = vertex3f->getY() * factor * other_factor;
@@ -1132,16 +1144,22 @@ void main_loop_function()
 		if (key[SDLK_UP]) {
 			//draw_triangles = true;
 			//zAdd += 10.0;
-			Debugger::getInstance().print("up key");
-			//eye_z -= 0.1;
-			near_z -= 0.01;
+			//Debugger::getInstance().print("up key");
+			eye_z -= move_amount;
+			near_z -= move_amount;
 		}
 		if (key[SDLK_DOWN]) {
 			//draw_triangles = false;
 			//zAdd -= 10.0;
-			Debugger::getInstance().print("down key");
-			//eye_z += 0.1;
-			near_z += 0.01;
+			//Debugger::getInstance().print("down key");
+			eye_z += move_amount;
+			near_z += move_amount;
+		}
+		if (key[SDLK_z]) {
+			scale_factor -= scale_amount;
+		}
+		if (key[SDLK_x]) {
+			scale_factor += scale_amount;
 		}
 
 		delete perspectified;
@@ -1167,19 +1185,18 @@ void GL_Setup(int width, int height)
 
 int main(int argc, char *argv[]) {
 	// Initialize SDL with best video mode
-	//unsigned int polygonGroupIndex;
-	//unsigned int polygonIndex;
-	//unsigned int vertexIndex;
-	//RzPolygonGroup *polygonGroup;
-	//RzPolygon *polygon;
-	//RzVertex3f *vertex3f;
-	//float boundingXMin, boundingXMax, boundingYMin, boundingYMax;
-	//float boundingWidth;
-	//float boundingHeight;
-	//float scaleFactor;
+	unsigned int polygonGroupIndex;
+	unsigned int polygonIndex;
+	unsigned int vertexIndex;
+	RzPolygonGroup *polygonGroup;
+	RzPolygon *polygon;
+	RzVertex3f *vertex3f;
+	float boundingXMin, boundingXMax, boundingYMin, boundingYMax;
+	float boundingWidth;
+	float boundingHeight;
+	float scaleFactor;
 	stringstream ss;
-	//bool first;
-	//int numLogs = 20;
+	bool first;
 	vector<RzTriangle> triangles;
 
 	SDL_Init(SDL_INIT_VIDEO);
@@ -1199,12 +1216,6 @@ int main(int argc, char *argv[]) {
 	// parse the data file
 	CS455FileParser parser;
 	collection = parser.parseFile("data/biplane.dat");
-
-	/*
-	zBuffer.resize(WINDOW_WIDTH, vector<float>(WINDOW_HEIGHT));
-	zBufferSet.resize(WINDOW_WIDTH, vector<bool>(WINDOW_HEIGHT, false));
-	colorBuffer.resize(WINDOW_WIDTH, vector<RzColor3f>(WINDOW_HEIGHT));
-	*/
 
 	/*
 	// find the bounding box
@@ -1237,8 +1248,8 @@ int main(int argc, char *argv[]) {
 		}
 	}
 
-	boundingXMin -= 0.01 * (boundingXMax - boundingXMin);
-	boundingXMax += 0.01 * (boundingXMax - boundingXMin);
+	boundingXMin -= 0.05 * (boundingXMax - boundingXMin);
+	boundingXMax += 0.05 * (boundingXMax - boundingXMin);
 
 	for (polygonGroupIndex = 0; polygonGroupIndex < collection->polygonGroups.size(); ++polygonGroupIndex) {
 		polygonGroup = &collection->polygonGroups[polygonGroupIndex];
