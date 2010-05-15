@@ -15,6 +15,7 @@
 #include "RzColor3f.h"
 #include "RzVertex3f.h"
 #include "Debugger.h"
+#include "matrixmath.h"
 
 using namespace std;
 
@@ -637,6 +638,7 @@ void fillLowerPart(RzVertex3f *top, RzVertex3f *mid, RzVertex3f *bottom, float l
 
 void main_loop_function()
 {
+	vector<MATRIX4X4> matrices;
 	unsigned int polygonGroupIndex;
 	unsigned int polygonIndex;
 	unsigned int triangleIndex;
@@ -663,6 +665,9 @@ void main_loop_function()
 	float deltaTopMid;
 	float deltaTopBottom;
 	float deltaMidBottom;
+	float scale_factor = 1.0;
+	float scale_amount = 0.01;
+	MATRIX1X4 vector_matrix, result_1x4;
 
 	bool draw_triangles = false;
 	//float angle;
@@ -693,6 +698,23 @@ void main_loop_function()
 
 		// create the perspectified version of the model
 		perspectified = new RzPolygonGroupCollection(*collection);
+
+		matrices.clear();
+		MATRIX4X4 model_transform_matrix = IMAT_4X4;
+		MATRIX4X4 result_4x4;
+		MATRIX4X4 transform_matrix;
+
+		Mat_Init_4X4(&transform_matrix,
+				scale_factor, 0, 0, 0,
+				0, scale_factor, 0, 0,
+				0, 0, scale_factor, 0,
+				0, 0, 0, 1
+				);
+
+		Mat_Mul_4X4(&transform_matrix, &model_transform_matrix, &result_4x4);
+		MAT_COPY_4X4(&result_4x4, &model_transform_matrix);
+
+		//matrices.push_back(translate_matrix);
 
 		/*
 		ss.clear();
@@ -753,6 +775,14 @@ void main_loop_function()
 				for (vertexIndex = 0; vertexIndex < polygon->vertices.size(); ++vertexIndex) {
 					vertex3f = &polygon->vertices[vertexIndex];
 
+					// perform matrix transforms on vertices
+					Mat_Init_1X4(&vector_matrix, vertex3f->getX(), vertex3f->getY(), vertex3f->getZ(), 1);
+					Mat_Mul_1X4_4X4(&vector_matrix, &model_transform_matrix, &result_1x4);
+
+					vertex3f->setX(result_1x4.M00);
+					vertex3f->setY(result_1x4.M01);
+					vertex3f->setZ(result_1x4.M02);
+
 					float big_z = eye_z - vertex3f->getZ();
 					float big_x = vertex3f->getX();
 					float big_y = vertex3f->getY();
@@ -770,6 +800,7 @@ void main_loop_function()
 
 					vertex3f->setX(new_x);
 					vertex3f->setY(new_y);
+
 				}
 
 
@@ -1076,12 +1107,12 @@ void main_loop_function()
 		// Check keypresses
 		if(key[SDLK_RIGHT]) {
 			//++maxPointPlots;
-			++maxScanLines;
+			//++maxScanLines;
 			//angle-=0.5;
 		}
 		if(key[SDLK_LEFT]) {
 			//--maxPointPlots;
-			--maxScanLines;
+			//--maxScanLines;
 			//angle+=0.5;
 		}
 		if (key[SDLK_UP]) {
