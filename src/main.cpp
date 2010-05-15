@@ -681,6 +681,8 @@ void main_loop_function()
 	float near_z = 9.9;
 	float far_z = -1000.0;
 
+	float rotation = 0.0;
+
 	while(events())
 	{
 		//numPointPlots = 0;
@@ -783,13 +785,23 @@ void main_loop_function()
 					vertex3f->setY(result_1x4.M01);
 					vertex3f->setZ(result_1x4.M02);
 
+					/*
+					// first, let's rotate
+					float radius = sqrt(pow(vertex3f->getX(), 2) + pow(vertex3f->getZ(), 2));
+					float angle = atan2(vertex3f->getZ(), vertex3f->getX());
+					float new_angle = angle + rotation;
+					vertex3f->setX(cos(new_angle) * radius);
+					vertex3f->setZ(sin(new_angle) * radius);
+					*/
+
+
 					float big_z = eye_z - vertex3f->getZ();
 					float big_x = vertex3f->getX();
 					float big_y = vertex3f->getY();
 					float little_z = eye_z - near_z;
 
 					float factor = little_z / big_z;
-					float other_factor = 200.0;
+					float other_factor = 400.0;
 
 					float new_x = vertex3f->getX() * factor * other_factor;
 					float new_y = vertex3f->getY() * factor * other_factor;
@@ -1109,11 +1121,13 @@ void main_loop_function()
 			//++maxPointPlots;
 			//++maxScanLines;
 			//angle-=0.5;
+			rotation -= 0.05;
 		}
 		if(key[SDLK_LEFT]) {
 			//--maxPointPlots;
 			//--maxScanLines;
 			//angle+=0.5;
+			rotation += 0.05;
 		}
 		if (key[SDLK_UP]) {
 			//draw_triangles = true;
