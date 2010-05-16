@@ -22,11 +22,21 @@ using namespace std;
 #define WINDOW_WIDTH 700
 #define WINDOW_HEIGHT 700
 
+float interpolateComponent(float, float, float, float, float, float, float, float, float, float);
+
 // Keydown booleans
 bool key[321];
 float zBuffer[WINDOW_WIDTH][WINDOW_HEIGHT];
 bool zBufferSet[WINDOW_WIDTH][WINDOW_HEIGHT];
 RzColor3f colorBuffer[WINDOW_WIDTH][WINDOW_HEIGHT];
+
+VECTOR3D light_pos = {-5.0f, 1.0f, 2.0f };
+RzColor3f light_color;
+RzColor3f ambient_light;
+RzColor3f specular_highlight;
+float phong_exponent = 20.0f;
+
+float eye_z, near_z, far_z, other_factor;
 
 //int numPointPlots = 0;
 //int maxPointPlots = 0;
@@ -90,8 +100,8 @@ int intify(float f) {
 }
 
 float computeSlope2d(RzVertex3f *v1, RzVertex3f *v2) {
-	float denominator = (float)(intify(v1->getX()) - intify(v2->getX()));
-	float numerator = (float)(intify(v1->getY()) - intify(v2->getY()));
+	float denominator = (float)(intify(v1->screen_x) - intify(v2->screen_x));
+	float numerator = (float)(intify(v1->screen_y) - intify(v2->screen_y));
 
 	float slope;
 
@@ -119,7 +129,7 @@ float computeSlope2d(RzVertex3f *v1, RzVertex3f *v2) {
 }
 
 float computeDelta2d(RzVertex3f *v1, RzVertex3f *v2) {
-	float delta = 1.0 / computeSlope2d(v1, v2);
+	float delta = 1.0f / computeSlope2d(v1, v2);
 	return delta;
 }
 
@@ -162,6 +172,61 @@ void drawPoint2i(int x, int y, float z, RzColor3f *color) {
 	}
 }
 
+void drawPoint2iWithShading(int screen_x, int screen_y, float world_z, VECTOR3D_PTR surface_normal, RzColor3f *surface_color) {
+	RzColor3f color;
+	// extrapolate world view x and y
+	float little_z = eye_z - near_z;
+	float big_z = eye_z - world_z;
+
+	float factor = (big_z / little_z) / other_factor;
+
+	float world_x = ((float)WINDOW_WIDTH / 2.0f - (float)screen_x) * factor;
+	float world_y = ((float)WINDOW_HEIGHT / 2.0f - (float)screen_y) * factor;
+
+	VECTOR3D light_vector = { light_pos.x - world_x,
+			light_pos.y - world_y,
+			light_pos.z - world_z
+	};
+	VECTOR3D_Normalize(&light_vector);
+	VECTOR3D_Normalize(surface_normal);
+
+	VECTOR3D eye_vector = { -world_x, -world_y, big_z };
+	VECTOR3D_Normalize(&eye_vector);
+
+	VECTOR3D reflect_vector, scaled_normal, tmp_vector;
+	VECTOR3D_Scale(2.0f, surface_normal, &scaled_normal);
+	float surface_dot_light = VECTOR3D_Dot(surface_normal, &light_vector);
+	VECTOR3D_Scale(surface_dot_light, &scaled_normal, &tmp_vector);
+	VECTOR3D_Sub(&tmp_vector, &light_vector, &reflect_vector);
+
+	for (int c = 0; c < 3; ++c) {
+		color.components[c]
+		    = min(1.0f,
+		    		(
+		    				// lambertion illumination
+		    				surface_color->components[c] * light_color.components[c] * max(0.0f,
+		    				surface_dot_light)
+		    				)
+		    		)
+		    		+
+		    		(
+		    				// ambient light
+		    				ambient_light.components[c] * surface_color->components[c]
+		    		)
+		    		+
+		    		(
+		    				// phong shading
+		    				light_color.components[c] * specular_highlight.components[c] *
+									max(0.0f, pow(VECTOR3D_Dot(&eye_vector, &reflect_vector), phong_exponent)
+		    		)
+
+		    );
+	}
+
+	drawPoint2i(screen_x, screen_y, world_z, &color);
+	//drawPoint2i(x, y, z, surface_color);
+}
+
 void drawPoint2f(float x, float y, float z, RzColor3f *color) {
 	// get buffer coordinates
 	//int i_x = round1f(x);
@@ -170,6 +235,7 @@ void drawPoint2f(float x, float y, float z, RzColor3f *color) {
 }
 
 float interpolateZ(float z1, float z2, float z3, float y1, float ys, float y2, float y3, float xa, float xp, float xb) {
+	/*
 	float za, zb, zp;
 
 	y1 = (float)intify(y1);
@@ -185,6 +251,40 @@ float interpolateZ(float z1, float z2, float z3, float y1, float ys, float y2, f
 	zp = zb - (zb - za) * (xb - xp) / (xb - xa);
 
 	return zp;
+	*/
+	return interpolateComponent(z1, z2, z3, y1, ys, y2, y3, xa, xp, xb);
+}
+
+float interpolateComponent(float c1, float c2, float c3, float y1, float ys, float y2, float y3, float xa, float xs, float xb) {
+	float ca, cb, cs;
+
+	y1 = (float)intify(y1);
+	ys = (float)intify(ys);
+	y2 = (float)intify(y2);
+	y3 = (float)intify(y3);
+	xa = (float)intify(xa);
+	xs = (float)intify(xs);
+	xb = (float)intify(xb);
+
+	ca = c1 - (c1 - c2) * (y1 - ys) / (y1 - y2);
+	cb = c1 - (c1 - c3) * (y1 - ys) / (y1 - y3);
+	cs = cb - (cb - ca) * (xb - xs) / (xb - xa);
+
+	return cs;
+}
+
+void interpolateNormal(RzVertex3f *v1, float xa, float xs, float ys, float xb, RzVertex3f *v2, RzVertex3f *v3,
+		VECTOR3D_PTR normal) {
+	int ortho_index;
+	for (int i = 0; i < 3; ++i) {
+		ortho_index = i + 3;
+		normal->M[i] = interpolateComponent(
+				v1->coordinates[ortho_index],
+				v2->coordinates[ortho_index],
+				v3->coordinates[ortho_index],
+				(float)v1->screen_y, ys, (float)v2->screen_y, (float)v3->screen_y,
+				xa, xs, xb);
+	}
 }
 
 /*
@@ -195,83 +295,6 @@ float interpolateZhorizontal(float za, float zb, float xa, float xp, float xb) {
 	return zp;
 }
 */
-
-void fillUpperPart(RzVertex3f *top, RzVertex3f *mid, RzVertex3f *bottom, float leftUpperDelta,
-		float rightUpperDelta, RzColor3f *color3f) {
-
-	int yPos = intify(top->getY());
-	int endY = intify(mid->getY());
-	float xLeft, xRight;
-	int xMin, xMax, xPos;
-
-	/*
-	int leftmost, rightmost;
-	leftmost = intify(mid->getX());
-	if (intify(bottom->getX()) < leftmost) {
-		leftmost = intify(bottom->getX());
-		rightmost = intify(mid->getX());
-	} else {
-		rightmost = intify(bottom->getX());
-	}
-	*/
-
-	xLeft = xRight = (float)intify(top->getX());
-
-	/*
-	RzColor3f color;
-	color.setRed(1.0);
-	drawPoint2i(intify(top->getX()), intify(top->getY()), top->getZ(), &color);
-	*/
-
-	while (yPos <= endY) {
-		// fill in the line
-		xMin = intify(xLeft);
-		xMax = intify(xRight);
-
-		/*
-		if (xMin < leftmost) {
-			xMin = leftmost;
-		}
-		if (xMax > rightmost) {
-			xMax = rightmost;
-		}
-		*/
-
-		if (xMin < xMax) {
-			if (numScanLines >= maxScanLines) {
-				//return;
-			} else {
-				++numScanLines;
-			}
-		}
-
-		xPos = xMin;
-		while (xPos < xMax) {
-
-			// draw the point
-			drawPoint2i(xPos, yPos,
-					interpolateZ(top->getZ(),
-							mid->getZ(),
-							bottom->getZ(),
-							top->getY(),
-							(float)yPos,
-							mid->getY(),
-							bottom->getY(),
-							xLeft,
-							(float)xPos,
-							xRight
-							),
-							color3f);
-
-			++xPos;
-		}
-
-		xLeft += leftUpperDelta;
-		xRight += rightUpperDelta;
-
-		++yPos;
-	}
-}
 
 /*
 void fillLine(RzVertex3f *v1, RzVertex3f *v2, RzColor3f *color3f) {
@@ -307,134 +330,31 @@ void fillHorizontalLine(RzVertex3f *v1, RzVertex3f *v2, RzColor3f *color3f) {
 }
 */
 
-/*
-void fillLowerPart(RzVertex3f *top, RzVertex3f *mid, RzVertex3f *bottom, float leftLowerSlope,
-		float rightLowerSlope, RzColor3f *color3f) {
-
-	float slopeTopMid, slopeTopBottom, slopeMidBottom;
-	slopeTopMid = computeSlope2d(top, mid);
-	slopeTopBottom = computeSlope2d(top, bottom);
-	slopeMidBottom = computeSlope2d(mid, bottom);
-
-	float deltaTopMid, deltaTopBottom, deltaMidBottom;
-	deltaTopMid = 1.0 / slopeTopMid;
-	deltaTopBottom = 1.0 / slopeTopBottom;
-	deltaMidBottom = 1.0 / slopeMidBottom;
-
-	RzVertex3f *left, *right;
-
-	float leftSlope, rightSlope;
-
-	// slopes can be positive and negative infinity
-
-	// smaller delta is to the right
-	if (deltaMidBottom < deltaTopBottom) {
-		right = mid;
-		left = top;
-		leftSlope = slopeTopBottom;
-		rightSlope = slopeMidBottom;
-	} else {
-		right = top;
-		left = mid;
-		leftSlope = slopeMidBottom;
-		rightSlope = slopeTopBottom;
-	}
-
-	float bLeft, bRight;
-
-	if (isfinite(leftSlope)) {
-		bLeft = bottom->getY() - leftSlope * left->getX();
-	}
-	if (isfinite(rightSlope)) {
-		bRight = bottom->getY() - rightSlope * right->getX();
-	}
-
-	int yPos = intify(bottom->getY());
-	int yEnd = intify(mid->getY());
-	int xPos;
-	float xLeft, xRight;
-	int xMin, xMax;
-
-
-	//xMin = xMaxLeft = xRight = (float)intify(bottom->getX());
-
-	//RzColor3f color;
-	//color.setRed(1.0);
-	//drawPoint2i(intify(bottom->getX()), intify(bottom->getY()), bottom->getZ(), &color);
-
-	while (yPos > yEnd) {
-		// fill in the line
-
-		if (isfinite(leftSlope)) {
-			xLeft = ((float)yPos - bLeft) / leftSlope;
-		} else {
-			xLeft = (float)intify(left->getX());
-		}
-
-		if (isfinite(rightSlope)) {
-			xRight = ((float)yPos - bRight) / rightSlope;
-		} else {
-			xRight = (float)intify(right->getX());
-		}
-		xMin = intify(xLeft);
-		xMax = intify(xRight);
-
-		if (xMin < xMax) {
-			if (numScanLines >= maxScanLines) {
-				return;
-			} else {
-				++numScanLines;
-			}
-		}
-
-		xPos = xMin;
-		while (xPos < xMax) {
-			// draw the point
-			drawPoint2i(xPos, yPos,
-					interpolateZ(bottom->getZ(),
-							mid->getZ(),
-							top->getZ(),
-							bottom->getY(),
-							(float)yPos,
-							mid->getY(),
-							top->getY(),
-							xLeft,
-							(float)xPos,
-							xRight
-							),
-							color3f);
-
-			++xPos;
-		}
-
-		--yPos;
-	}
-}
-*/
-
 void fillFlatTop(RzVertex3f *top, RzVertex3f *mid, RzVertex3f *bottom, RzVertex3f *left, RzVertex3f *right,
 		float leftSlope, float rightSlope, RzColor3f *color3f) {
 
 	float bLeft, bRight;
 
 	if (isfinite(leftSlope)) {
-		bLeft = (float)intify(left->getY()) - leftSlope * (float)intify(left->getX());
+		bLeft = (float)intify(left->screen_y) - leftSlope * (float)intify(left->screen_x);
 	}
 	if (isfinite(rightSlope)) {
-		bRight = (float)intify(right->getY()) - rightSlope * (float)intify(right->getX());
+		bRight = (float)intify(right->screen_y) - rightSlope * (float)intify(right->screen_x);
 	}
 
-	int yPos = intify(bottom->getY());
-	int yEnd = intify(mid->getY());
+	int yPos = intify(bottom->screen_y);
+	int yEnd = intify(mid->screen_y);
 	int xPos;
 	float xLeft, xRight;
 	int xMin, xMax;
 
-	//xMin = xMaxLeft = xRight = (float)intify(bottom->getX());
+	VECTOR3D surface_normal;
+
+	//xMin = xMaxLeft = xRight = (float)intify(bottom->screen_x);
 
 	//RzColor3f color;
 	//color.setRed(1.0);
-	//drawPoint2i(intify(bottom->getX()), intify(bottom->getY()), bottom->getZ(), &color);
+	//drawPoint2i(intify(bottom->screen_x), intify(bottom->screen_y), bottom->getZ(), &color);
 
 	while (yPos > yEnd) {
 		// fill in the line
@@ -442,13 +362,13 @@ void fillFlatTop(RzVertex3f *top, RzVertex3f *mid, RzVertex3f *bottom, RzVertex3
 		if (isfinite(leftSlope)) {
 			xLeft = ((float)yPos - bLeft) / leftSlope;
 		} else {
-			xLeft = (float)intify(left->getX());
+			xLeft = (float)intify(left->screen_x);
 		}
 
 		if (isfinite(rightSlope)) {
 			xRight = ((float)yPos - bRight) / rightSlope;
 		} else {
-			xRight = (float)intify(right->getX());
+			xRight = (float)intify(right->screen_x);
 		}
 
 		xMin = intify(xLeft);
@@ -464,20 +384,22 @@ void fillFlatTop(RzVertex3f *top, RzVertex3f *mid, RzVertex3f *bottom, RzVertex3
 
 		xPos = xMin;
 		while (xPos < xMax) {
-			// draw the point
-			drawPoint2i(xPos, yPos,
+			interpolateNormal(bottom, xLeft, (float)xPos, (float)yPos, xRight, mid, top, &surface_normal);
+			drawPoint2iWithShading(xPos, yPos,
 					interpolateZ(bottom->getZ(),
 							mid->getZ(),
 							top->getZ(),
-							bottom->getY(),
+							bottom->screen_y,
 							(float)yPos,
-							mid->getY(),
-							top->getY(),
+							mid->screen_y,
+							top->screen_y,
 							xLeft,
 							(float)xPos,
 							xRight
 							),
-							color3f);
+					&surface_normal,
+					color3f
+					);
 
 			++xPos;
 		}
@@ -492,23 +414,24 @@ void fillFlatBottom(RzVertex3f *top, RzVertex3f *mid, RzVertex3f *bottom, RzVert
 	float bLeft, bRight;
 
 	if (isfinite(leftSlope)) {
-		bLeft = (float)intify(left->getY()) - leftSlope * (float)intify(left->getX());
+		bLeft = (float)intify(left->screen_y) - leftSlope * (float)intify(left->screen_x);
 	}
 	if (isfinite(rightSlope)) {
-		bRight = (float)intify(right->getY()) - rightSlope * (float)intify(right->getX());
+		bRight = (float)intify(right->screen_y) - rightSlope * (float)intify(right->screen_x);
 	}
 
-	int yPos = intify(top->getY());
-	int yEnd = intify(mid->getY());
+	int yPos = intify(top->screen_y);
+	int yEnd = intify(mid->screen_y);
 	int xPos;
 	float xLeft, xRight;
 	int xMin, xMax;
+	VECTOR3D surface_normal;
 
-	//xMin = xMaxLeft = xRight = (float)intify(bottom->getX());
+	//xMin = xMaxLeft = xRight = (float)intify(bottom->screen_x);
 
 	//RzColor3f color;
 	//color.setRed(1.0);
-	//drawPoint2i(intify(bottom->getX()), intify(bottom->getY()), bottom->getZ(), &color);
+	//drawPoint2i(intify(bottom->screen_x), intify(bottom->screen_y), bottom->getZ(), &color);
 
 	while (yPos <= yEnd) {
 		// fill in the line
@@ -516,13 +439,13 @@ void fillFlatBottom(RzVertex3f *top, RzVertex3f *mid, RzVertex3f *bottom, RzVert
 		if (isfinite(leftSlope)) {
 			xLeft = ((float)yPos - bLeft) / leftSlope;
 		} else {
-			xLeft = (float)intify(left->getX());
+			xLeft = (float)intify(left->screen_x);
 		}
 
 		if (isfinite(rightSlope)) {
 			xRight = ((float)yPos - bRight) / rightSlope;
 		} else {
-			xRight = (float)intify(right->getX());
+			xRight = (float)intify(right->screen_x);
 		}
 
 		xMin = intify(xLeft);
@@ -538,21 +461,22 @@ void fillFlatBottom(RzVertex3f *top, RzVertex3f *mid, RzVertex3f *bottom, RzVert
 
 		xPos = xMin;
 		while (xPos < xMax) {
-
-			// draw the point
-			drawPoint2i(xPos, yPos,
+			interpolateNormal(top, xLeft, (float)xPos, (float)yPos, xRight, mid, bottom, &surface_normal);
+			drawPoint2iWithShading(xPos, yPos,
 					interpolateZ(top->getZ(),
 							mid->getZ(),
 							bottom->getZ(),
-							top->getY(),
+							top->screen_y,
 							(float)yPos,
-							mid->getY(),
-							bottom->getY(),
+							mid->screen_y,
+							bottom->screen_y,
 							xLeft,
 							(float)xPos,
 							xRight
 							),
-							color3f);
+					&surface_normal,
+					color3f
+			);
 
 			++xPos;
 		}
@@ -561,84 +485,9 @@ void fillFlatBottom(RzVertex3f *top, RzVertex3f *mid, RzVertex3f *bottom, RzVert
 	}
 }
 
-void fillLowerPart(RzVertex3f *top, RzVertex3f *mid, RzVertex3f *bottom, float leftLowerDelta,
-		float rightLowerDelta, RzColor3f *color3f) {
-
-	int yPos = intify(bottom->getY());
-	int yEnd = intify(mid->getY());
-	float xLeft, xRight;
-	int xPos;
-	int xMin, xMax;
-	xLeft = xRight = (float)intify(bottom->getX());
-
-	/*
-	int leftmost, rightmost;
-	leftmost = intify(mid->getX());
-	if (intify(top->getX()) < leftmost) {
-		leftmost = intify(top->getX());
-		rightmost = intify(mid->getX());
-	} else {
-		rightmost = intify(top->getX());
-	}
-	*/
-
-	//RzColor3f color;
-	//color.setRed(1.0);
-	//drawPoint2i(intify(bottom->getX()), intify(bottom->getY()), bottom->getZ(), &color);
-
-	while (yPos > yEnd) {
-		// fill in the line
-
-		xMin = intify(xLeft);
-		xMax = intify(xRight);
-
-		/*
-		if (xMin < leftmost) {
-			xMin = leftmost;
-		}
-		if (xMax > rightmost) {
-			xMax = rightmost;
-		}
-		*/
-
-		if (xMin < xMax) {
-			if (numScanLines >= maxScanLines) {
-				//return;
-			} else {
-				++numScanLines;
-			}
-		}
-
-		xPos = xMin;
-		while (xPos < xMax) {
-			// draw the point
-			drawPoint2i(xPos, yPos,
-					interpolateZ(bottom->getZ(),
-							mid->getZ(),
-							top->getZ(),
-							bottom->getY(),
-							(float)yPos,
-							mid->getY(),
-							top->getY(),
-							xLeft,
-							(float)xPos,
-							xRight
-							),
-							color3f);
-
-			++xPos;
-		}
-
-		xLeft -= leftLowerDelta;
-		xRight -= rightLowerDelta;
-
-		--yPos;
-	}
-}
-
 void main_loop_function()
 {
-	vector<MATRIX4X4> matrices;
+	//vector<MATRIX4X4> matrices;
 	unsigned int polygonGroupIndex;
 	unsigned int polygonIndex;
 	unsigned int triangleIndex;
@@ -664,9 +513,13 @@ void main_loop_function()
 	float deltaTopMid;
 	float deltaTopBottom;
 	float deltaMidBottom;
-	float scale_factor = 1.0;
-	float scale_amount = 0.005;
-	MATRIX1X4 vector_matrix, result_1x4;
+	float scale_factor = 1.0f;
+	float scale_amount = 0.005f;
+	VECTOR4D vertex_vector, result_vector, normal_vector;
+	MATRIX4X4 normal_transform_matrix,
+		model_transform_matrix,
+		result_4x4,
+		transform_matrix;
 
 	bool draw_triangles = false;
 	//float angle;
@@ -676,16 +529,65 @@ void main_loop_function()
 
 	int lastNumScanLines = 0;
 
-	float eye_z = 10.0;
-	float near_z = 9.7;
-	float move_amount = 0.1;
-	float other_factor = 700.0;
-	float far_z = -1000.0;
+	eye_z = 10.0f;
+	near_z = 9.0f;
+	other_factor = 200.0f;
+	far_z = -1000.0f;
 
-	float rotation = 0.0;
+	float move_amount = 0.1f;
+	float rotation = 0.0f;
+	float cos_rot;
+	float sin_rot;
+
+	float translate_x = 0.0f;
+	float translate_y = 0.0f;
+	float translate_z = 0.0f;
+	float translate_amount = 0.5;
+
+	int mycount = RAND_RANGE(0, 30);
+
+	light_color.setRed(1.0f);
+	light_color.setGreen(1.0f);
+	light_color.setBlue(1.0f);
+
+	ambient_light.setRed(0.4f);
+	ambient_light.setGreen(0.4f);
+	ambient_light.setBlue(0.5f);
+
+	specular_highlight.setRed(1.0f);
+	specular_highlight.setGreen(1.0f);
+	specular_highlight.setBlue(1.0f);
 
 	while(events())
 	{
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+		//glClear(GL_COLOR_BUFFER_BIT);
+		//glLoadIdentity();
+		//glTranslatef(0,0, -10);
+		//glRotatef(angle, 0, 0, 1);
+		//glBegin(GL_POINTS);
+		//glBegin(GL_TRIANGLES);
+//		glBegin(GL_QUADS);
+//		glColor3ub(255, 000, 000); glVertex2f(200, 300);
+//		glColor3ub(000, 255, 000); glVertex2f(500,  300);
+//		glColor3ub(000, 000, 255); glVertex2f(500, 100);
+//		glColor3ub(255, 255, 000); glVertex2f(200, 100);
+//		glEnd();
+//
+//		glBegin(GL_TRIANGLES);
+//		glColor3f(1.0, 0, 0);
+//		glVertex2f(200, 200);
+//		glColor3f(0, 1.0, 0);
+//		glVertex2f(500, 300);
+//		glColor3f(0, 0, 1.0);
+//		glVertex2f(300, 600);
+//		glEnd();
+//
+//		SDL_GL_SwapBuffers();
+//
+//		continue;
+
+
 		//numPointPlots = 0;
 		numScanLines = 0;
 
@@ -693,20 +595,23 @@ void main_loop_function()
 		for (x = 0; x < WINDOW_WIDTH; ++x) {
 			for (y = 0; y < WINDOW_HEIGHT; ++y) {
 				zBufferSet[x][y] = false;
-				colorBuffer[x][y].setRed(0.6);
-				colorBuffer[x][y].setGreen(0.6);
-				colorBuffer[x][y].setBlue(1.0);
+				colorBuffer[x][y].setRed(0.6f);
+				colorBuffer[x][y].setGreen(0.6f);
+				colorBuffer[x][y].setBlue(1.0f);
 			}
 		}
 
 		// create the perspectified version of the model
 		perspectified = new RzPolygonGroupCollection(*collection);
 
-		matrices.clear();
-		MATRIX4X4 model_transform_matrix = IMAT_4X4;
-		MATRIX4X4 result_4x4;
-		MATRIX4X4 transform_matrix;
+		//matrices.clear();
+		// model transform init
+		MAT_IDENTITY_4X4(&model_transform_matrix);
+		// normal transform init
+		MAT_IDENTITY_4X4(&normal_transform_matrix);
 
+		// scale transform
+		// model scale
 		Mat_Init_4X4(&transform_matrix,
 				scale_factor, 0, 0, 0,
 				0, scale_factor, 0, 0,
@@ -717,8 +622,26 @@ void main_loop_function()
 		Mat_Mul_4X4(&transform_matrix, &model_transform_matrix, &result_4x4);
 		MAT_COPY_4X4(&result_4x4, &model_transform_matrix);
 
-		float cos_rot = cos(rotation);
-		float sin_rot = sin(rotation);
+		// don't scale the normals
+
+		// translation
+		// translate model
+		Mat_Init_4X4(&transform_matrix,
+				1, 0, 0, translate_x,
+				0, 1, 0, translate_y,
+				0, 0, 1, translate_z,
+				0, 0, 0, 1
+				);
+
+		Mat_Mul_4X4(&transform_matrix, &model_transform_matrix, &result_4x4);
+		MAT_COPY_4X4(&result_4x4, &model_transform_matrix);
+
+		// don't translate normals
+
+		// rotation
+		// model rotation
+		cos_rot = cos(rotation);
+		sin_rot = sin(rotation);
 
 		Mat_Init_4X4(&transform_matrix,
 				cos_rot, 0, sin_rot, 0,
@@ -728,6 +651,16 @@ void main_loop_function()
 
 		Mat_Mul_4X4(&transform_matrix, &model_transform_matrix, &result_4x4);
 		MAT_COPY_4X4(&result_4x4, &model_transform_matrix);
+
+		// normal rotation
+		Mat_Init_4X4(&transform_matrix,
+				cos_rot, 0, sin_rot, 0,
+				0, 1, 0, 0,
+				-sin_rot, 0, cos_rot, 0,
+				0, 0, 0, 1);
+
+		Mat_Mul_4X4(&transform_matrix, &normal_transform_matrix, &result_4x4);
+		MAT_COPY_4X4(&result_4x4, &normal_transform_matrix);
 
 		//matrices.push_back(translate_matrix);
 
@@ -752,25 +685,6 @@ void main_loop_function()
 		Debugger::getInstance().print(ss.str());
 		*/
 
-		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-		//glClear(GL_COLOR_BUFFER_BIT);
-		//glLoadIdentity();
-		//glTranslatef(0,0, -10);
-		//glRotatef(angle, 0, 0, 1);
-		//glBegin(GL_QUADS);
-		//glBegin(GL_POINTS);
-		//glBegin(GL_TRIANGLES);
-		//glColor3ub(255, 000, 000); glVertex2f(-1,  1);
-		//glColor3ub(000, 255, 000); glVertex2f( 1,  1);
-		//glColor3ub(000, 000, 255); glVertex2f( 1, -1);
-		//glColor3ub(255, 255, 000); glVertex2f(-1, -1);
-		/*
-		glColor3ub(255, 000, 000); glVertex2f(200,  500);
-		glColor3ub(000, 255, 000); glVertex2f( 500,  500);
-		glColor3ub(000, 000, 255); glVertex2f( 500, 200);
-		glColor3ub(255, 255, 000); glVertex2f(200, 200);
-		*/
-
 		for (polygonGroupIndex = 0; polygonGroupIndex < perspectified->polygonGroups.size(); ++polygonGroupIndex) {
 			polygonGroup = &perspectified->polygonGroups[polygonGroupIndex];
 			color3f = &polygonGroup->color;
@@ -790,43 +704,47 @@ void main_loop_function()
 				for (vertexIndex = 0; vertexIndex < polygon->vertices.size(); ++vertexIndex) {
 					vertex3f = &polygon->vertices[vertexIndex];
 
+//					vertex3f->screen_x = 350 - (vertex3f->getX() * 200);
+//					vertex3f->screen_y = 350 - (vertex3f->getY() * 200);
+//
+//					continue;
+
 					// perform matrix transforms on vertices
-					Mat_Init_1X4(&vector_matrix, vertex3f->getX(), vertex3f->getY(), vertex3f->getZ(), 1);
-					Mat_Mul_1X4_4X4(&vector_matrix, &model_transform_matrix, &result_1x4);
+					VECTOR4D_INITXYZ(&vertex_vector, vertex3f->getX(), vertex3f->getY(), vertex3f->getZ());
+					Mat_Mul_4X4_VECTOR4D(&model_transform_matrix, &vertex_vector, &result_vector);
 
-					vertex3f->setX(result_1x4.M00);
-					vertex3f->setY(result_1x4.M01);
-					vertex3f->setZ(result_1x4.M02);
+					vertex3f->setX(result_vector.x);
+					vertex3f->setY(result_vector.y);
+					vertex3f->setZ(result_vector.z);
 
-					/*
-					// first, let's rotate
-					float radius = sqrt(pow(vertex3f->getX(), 2) + pow(vertex3f->getZ(), 2));
-					float angle = atan2(vertex3f->getZ(), vertex3f->getX());
-					float new_angle = angle + rotation;
-					vertex3f->setX(cos(new_angle) * radius);
-					vertex3f->setZ(sin(new_angle) * radius);
-					*/
+					// transform the normal vectors
+					VECTOR4D_INITXYZ(&normal_vector, vertex3f->getOrthoX(), vertex3f->getOrthoY(), vertex3f->getOrthoZ());
+					Mat_Mul_4X4_VECTOR4D(&normal_transform_matrix, &normal_vector, &result_vector);
+
+					// normalize normal vector
+					VECTOR4D_Normalize(&normal_vector);
+
+					vertex3f->setOrthoX(result_vector.x);
+					vertex3f->setOrthoY(result_vector.y);
+					vertex3f->setOrthoZ(result_vector.z);
 
 					// make perspective
 					float big_z = eye_z - vertex3f->getZ();
-					float big_x = vertex3f->getX();
-					float big_y = vertex3f->getY();
 					float little_z = eye_z - near_z;
 
-					float factor = little_z / big_z;
+					float factor = (little_z / big_z) * other_factor;
 
-					float new_x = vertex3f->getX() * factor * other_factor;
-					float new_y = vertex3f->getY() * factor * other_factor;
+					float new_x = vertex3f->getX() * factor;
+					float new_y = vertex3f->getY() * factor;
 
 
-					new_x = (float)WINDOW_WIDTH / 2.0 + new_x;
-					new_y = (float)WINDOW_HEIGHT / 2.0 - new_y;
+					vertex3f->screen_x = ((float)WINDOW_WIDTH / 2.0f) + new_x;
+					vertex3f->screen_y = ((float)WINDOW_HEIGHT / 2.0f) - new_y;
 
-					vertex3f->setX(new_x);
-					vertex3f->setY(new_y);
 
+
+					//drawPoint2i(vertex3f->screen_x, vertex3f->screen_y, vertex3f->getZ(), color3f);
 				}
-
 
 				triangles = polygon->getTriangles();
 
@@ -837,59 +755,74 @@ void main_loop_function()
 					triangle = &triangles[triangleIndex];
 					// scan line convert
 
+//					glBegin(GL_TRIANGLES);
+//					glColor3f(1.0, 0, 0);
+//					glVertex2f(intify(triangle->vertices[0].screen_x),
+//							intify(triangle->vertices[0].screen_y));
+//					glColor3f(0, 1.0, 0);
+//					glVertex2f(intify(triangle->vertices[1].screen_x),
+//							intify(triangle->vertices[1].screen_y));
+//					glColor3f(0, 0, 1.0);
+//					glVertex2f(intify(triangle->vertices[2].screen_x),
+//							intify(triangle->vertices[2].screen_y));
+//					glEnd();
+//
+//					break;
+
+
 					// get bottom, mid, top vertices
 					bottomVertex = &triangle->vertices[0];
 					midVertex = &triangle->vertices[1];
 					topVertex = &triangle->vertices[2];
 
-					if (midVertex->getY() > bottomVertex->getY()) {
+					if (midVertex->screen_y > bottomVertex->screen_y) {
 						swapPointers((void**)&midVertex, (void**)&bottomVertex);
 					}
-					if (topVertex->getY() > midVertex->getY()) {
+					if (topVertex->screen_y > midVertex->screen_y) {
 						swapPointers((void**)&topVertex, (void**)&midVertex);
 
-						if (midVertex->getY() > bottomVertex->getY()) {
+						if (midVertex->screen_y > bottomVertex->screen_y) {
 							swapPointers((void**)&midVertex, (void**)&bottomVertex);
 						}
 					}
 
 					// sort vertices with same y
-					if (intify(topVertex->getY()) == intify(bottomVertex->getY())) {
+					if (intify(topVertex->screen_y) == intify(bottomVertex->screen_y)) {
 						// perfectly flat line
 						// sort by x value
-						if (intify(midVertex->getX()) > intify(bottomVertex->getX())) {
+						if (intify(midVertex->screen_x) > intify(bottomVertex->screen_x)) {
 							swapPointers((void**)&midVertex, (void**)&bottomVertex);
 						}
-						if (intify(topVertex->getX()) > intify(midVertex->getX())) {
+						if (intify(topVertex->screen_x) > intify(midVertex->screen_x)) {
 							swapPointers((void**)&topVertex, (void**)&midVertex);
 
-							if (intify(midVertex->getX()) > intify(bottomVertex->getX())) {
+							if (intify(midVertex->screen_x) > intify(bottomVertex->screen_x)) {
 								swapPointers((void**)&midVertex, (void**)&bottomVertex);
 							}
 						}
-					} else if (intify(topVertex->getY()) == intify(midVertex->getY())) {
+					} else if (intify(topVertex->screen_y) == intify(midVertex->screen_y)) {
 						// flat on top
-						if (intify(topVertex->getX()) > intify(midVertex->getX())) {
+						if (intify(topVertex->screen_x) > intify(midVertex->screen_x)) {
 							swapPointers((void**)&topVertex, (void**)&midVertex);
 						}
-					} else if (intify(midVertex->getY()) == intify(bottomVertex->getY())) {
+					} else if (intify(midVertex->screen_y) == intify(bottomVertex->screen_y)) {
 						// flat on bottom
-						if (intify(bottomVertex->getX()) > intify(midVertex->getX())) {
+						if (intify(bottomVertex->screen_x) > intify(midVertex->screen_x)) {
 							swapPointers((void**)&bottomVertex, (void**)&midVertex);
 						}
 					}
 
 					if (draw_triangles) {
 						glBegin(GL_TRIANGLES);
-						glColor3f(1.0, 0, 0);
-						glVertex2f(intify(bottomVertex->getX()),
-								intify(bottomVertex->getY()));
+						glColor3f(1.0f, 0.0f, 0.0f);
+						glVertex2f(intify(bottomVertex->screen_x),
+								intify(bottomVertex->screen_y));
 						glColor3f(0, 1.0, 0);
-						glVertex2f(intify(midVertex->getX()),
-								intify(midVertex->getY()));
+						glVertex2f(intify(midVertex->screen_x),
+								intify(midVertex->screen_y));
 						glColor3f(0, 0, 1.0);
-						glVertex2f(intify(topVertex->getX()),
-								intify(topVertex->getY()));
+						glVertex2f(intify(topVertex->screen_x),
+								intify(topVertex->screen_y));
 						glEnd();
 					}
 
@@ -917,7 +850,7 @@ void main_loop_function()
 						} else if (isnan(slopeTopBottom) || isnan(slopeMidBottom)) {
 							// ignore
 						} else {
-							if (intify(topVertex->getX()) < intify(midVertex->getX())) {
+							if (intify(topVertex->screen_x) < intify(midVertex->screen_x)) {
 								topLeft = topVertex;
 								topRight = midVertex;
 								topLeftSlope = slopeTopBottom;
@@ -943,7 +876,7 @@ void main_loop_function()
 						} else if (!isfinite(slopeMidBottom)) {
 							// ignore
 						} else {
-							if (intify(bottomVertex->getX()) > intify(midVertex->getX())) {
+							if (intify(bottomVertex->screen_x) > intify(midVertex->screen_x)) {
 								bottomLeft = midVertex;
 								bottomLeftSlope = slopeTopMid;
 								bottomRight = bottomVertex;
@@ -962,7 +895,7 @@ void main_loop_function()
 							if (slopeMidBottom == 0) {
 								// ignore drawing flat top triangle
 							} else {
-								if (intify(bottomVertex->getX()) > intify(midVertex->getX())) {
+								if (intify(bottomVertex->screen_x) > intify(midVertex->screen_x)) {
 									topLeft = midVertex;
 									topLeftSlope = slopeMidBottom;
 									topRight = topVertex;
@@ -985,7 +918,7 @@ void main_loop_function()
 							// ignore
 						} else if (slopeMidBottom == 0) {
 							// just fill the flat bottom
-							if (intify(bottomVertex->getX()) > intify(midVertex->getX())) {
+							if (intify(bottomVertex->screen_x) > intify(midVertex->screen_x)) {
 								bottomLeft = midVertex;
 								bottomLeftSlope = slopeTopMid;
 								bottomRight = bottomVertex;
@@ -1011,9 +944,9 @@ void main_loop_function()
 								ss.clear();
 								display = true;
 								ss << "deltaTopMid: " << deltaTopMid << " deltaTopBottom: " << deltaTopBottom;
-								ss << " top: " << intify(topVertex->getX()) << ", " << intify(topVertex->getY());
-								ss << " mid: " << intify(midVertex->getX()) << ", " << intify(midVertex->getY());
-								ss << " bottom: " << intify(bottomVertex->getX()) << ", " << intify(bottomVertex->getY());
+								ss << " top: " << intify(topVertex->screen_x) << ", " << intify(topVertex->screen_y);
+								ss << " mid: " << intify(midVertex->screen_x) << ", " << intify(midVertex->screen_y);
+								ss << " bottom: " << intify(bottomVertex->screen_x) << ", " << intify(bottomVertex->screen_y);
 								ss << endl;
 								Debugger::getInstance().print(ss.str());
 								lastNumScanLines = numScanLines;
@@ -1061,52 +994,6 @@ void main_loop_function()
 									bottomLeftSlope, bottomRightSlope, color3f);
 						}
 					}
-
-					/*
-					// figure out which side is left and right
-					// compare deltas
-					deltaTopMid = 1.0 / slopeTopMid;
-					deltaTopBottom = 1.0 / slopeTopBottom;
-					deltaMidBottom = 1.0 / slopeMidBottom;
-
-					//RzVertex3f *left, *right;
-
-					if (topVertex->getY() == bottomVertex->getY()) {
-						// perfectly flat line
-						//fillHorizontalLine(topVertex, midVertex, color3f);
-						//fillHorizontalLine(midVertex, bottomVertex, color3f);
-
-					} else if (slopeTopMid == 0) {
-						// flat on top
-						fillLowerPart(topVertex, midVertex, bottomVertex,
-								deltaTopBottom, deltaMidBottom, color3f);
-					} else if (deltaMidBottom == 0) {
-						// flat on bottom
-						fillUpperPart(topVertex, midVertex, bottomVertex,
-								deltaTopBottom, deltaTopMid, color3f);
-//						fillFlatBottom(topVertex, midVertex, bottomVertex, bottomVertex, midVertex,
-//								slopeTopBottom, slopeTopMid, color3f);
-					} else if (deltaTopMid < deltaTopBottom) {
-						fillUpperPart(topVertex, midVertex, bottomVertex,
-								deltaTopMid, deltaTopBottom, color3f);
-						fillLowerPart(topVertex, midVertex, bottomVertex,
-								deltaMidBottom, deltaTopBottom, color3f);
-//						fillFlatBottom(topVertex, midVertex, bottomVertex, midVertex, bottomVertex,
-//								slopeTopMid, slopeTopBottom, color3f);
-//						fillFlatTop(topVertex, midVertex, bottomVertex, midVertex, topVertex,
-//								slopeMidBottom, slopeTopBottom, color3f);
-					} else {
-						fillUpperPart(topVertex, midVertex, bottomVertex,
-								deltaTopBottom, deltaTopMid, color3f);
-						fillLowerPart(topVertex, midVertex, bottomVertex,
-								deltaTopBottom, deltaMidBottom, color3f);
-
-//						fillFlatBottom(topVertex, midVertex, bottomVertex, bottomVertex, midVertex,
-//								slopeTopBottom, slopeTopMid, color3f);
-//						fillFlatTop(topVertex, midVertex, bottomVertex, topVertex, midVertex,
-//								slopeTopBottom, slopeMidBottom, color3f);
-					}
-					*/
 				}
 			}
 		}
@@ -1142,14 +1029,12 @@ void main_loop_function()
 			rotation += 0.05;
 		}
 		if (key[SDLK_UP]) {
-			//draw_triangles = true;
 			//zAdd += 10.0;
 			//Debugger::getInstance().print("up key");
 			eye_z -= move_amount;
 			near_z -= move_amount;
 		}
 		if (key[SDLK_DOWN]) {
-			//draw_triangles = false;
 			//zAdd -= 10.0;
 			//Debugger::getInstance().print("down key");
 			eye_z += move_amount;
@@ -1160,6 +1045,37 @@ void main_loop_function()
 		}
 		if (key[SDLK_x]) {
 			scale_factor += scale_amount;
+		}
+		if (key[SDLK_u]) {
+			/*
+			ss.clear();
+			ss << "translate toward negative x: " << translate_x << endl;
+			Debugger::getInstance().print(ss.str());
+			*/
+			translate_x -= translate_amount;
+		}
+		if (key[SDLK_j]) {
+			/*
+			ss.clear();
+			ss << "translate toward positive x: " << translate_x << endl;
+			Debugger::getInstance().print(ss.str());
+			*/
+			translate_x += translate_amount;
+		}
+		if (key[SDLK_k]) {
+			translate_y -= translate_amount;
+		}
+		if (key[SDLK_i]) {
+			translate_y += translate_amount;
+		}
+		if (key[SDLK_o]) {
+			translate_z -= translate_amount;
+		}
+		if (key[SDLK_l]) {
+			translate_z += translate_amount;
+		}
+		if (key[SDLK_t]) {
+			draw_triangles = !draw_triangles;
 		}
 
 		delete perspectified;

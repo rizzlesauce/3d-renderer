@@ -4,6 +4,8 @@
 #ifndef MATRIXMATH
 #define MATRIXMATH
 
+#include <string>
+
 // DEFINES ////////////////////////////////////////////////
 
 // pi defines
@@ -484,7 +486,7 @@ typedef int *FIXP16_PTR;
 // identity matrices
 
 // 4x4 identity matrix
-const MATRIX4X4 IMAT_4X4 = {1,0,0,0, 
+const MATRIX4X4 IMAT_4X4 = {1,0,0,0,
                             0,1,0,0, 
                             0,0,1,0, 
                             0,0,0,1};
@@ -791,6 +793,7 @@ void Mat_Mul_1X4_4X4(MATRIX1X4_PTR ma, MATRIX4X4_PTR mb, MATRIX1X4_PTR mprod);
 void Mat_Mul_VECTOR3D_4X4(VECTOR3D_PTR  va, MATRIX4X4_PTR mb, VECTOR3D_PTR  vprod);
 void Mat_Mul_VECTOR3D_4X3(VECTOR3D_PTR  va, MATRIX4X3_PTR mb, VECTOR3D_PTR  vprod);
 void Mat_Mul_VECTOR4D_4X4(VECTOR4D_PTR  va, MATRIX4X4_PTR mb, VECTOR4D_PTR  vprod);
+void Mat_Mul_4X4_VECTOR4D(MATRIX4X4_PTR ma, VECTOR4D_PTR  vb, VECTOR4D_PTR  vprod);
 void Mat_Mul_VECTOR4D_4X3(VECTOR4D_PTR  va, MATRIX4X4_PTR mb, VECTOR4D_PTR  vprod);
 int Mat_Inverse_4X4(MATRIX4X4_PTR m, MATRIX4X4_PTR mi);
 void Mat_Init_4X4(MATRIX4X4_PTR ma, 
@@ -845,6 +848,9 @@ FIXP16 FIXP16_DIV(FIXP16 fp1, FIXP16 fp2);
 void FIXP16_Print(FIXP16 fp);
 
 
+std::string MATRIX4X4_To_String(MATRIX4X4_PTR ma);
+
+std::string VECTOR4D_To_String(VECTOR4D_PTR ma);
 // GLOBALS ////////////////////////////////////////////////
 
 

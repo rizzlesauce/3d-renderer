@@ -33,22 +33,15 @@ void RzPolygon::deepCopy(const RzPolygon& other) {
 vector<RzTriangle> RzPolygon::getTriangles() {
 	vector<RzTriangle> triangles;
 	unsigned int vertexIndex;
-	unsigned int coordinateIndex;
 
 	for (vertexIndex = 1; vertexIndex < vertices.size() - 1; ++vertexIndex) {
 		RzTriangle triangle;
 		// the first vertex is the first polygon vertex
-		for (coordinateIndex = 0; coordinateIndex < 3; ++coordinateIndex) {
-			triangle.vertices[0].coordinates[coordinateIndex] = vertices[0].coordinates[coordinateIndex];
-		}
+		triangle.vertices[0].deepCopy(vertices[0]);
 		// second triangle vertex
-		for (coordinateIndex = 0; coordinateIndex < 3; ++coordinateIndex) {
-			triangle.vertices[1].coordinates[coordinateIndex] = vertices[vertexIndex].coordinates[coordinateIndex];
-		}
+		triangle.vertices[1].deepCopy(vertices[vertexIndex]);
 		// third triangle vertex
-		for (coordinateIndex = 0; coordinateIndex < 3; ++coordinateIndex) {
-			triangle.vertices[2].coordinates[coordinateIndex] = vertices[vertexIndex + 1].coordinates[coordinateIndex];
-		}
+		triangle.vertices[2].deepCopy(vertices[vertexIndex + 1]);
 
 		triangles.push_back(triangle);
 	}

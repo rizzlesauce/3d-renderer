@@ -7,7 +7,7 @@
 
 #include "RzVertex3f.h"
 
-RzVertex3f::RzVertex3f() {
+RzVertex3f::RzVertex3f() : screen_x(0), screen_y(0) {
 	// TODO Auto-generated constructor stub
 }
 
@@ -24,6 +24,9 @@ void RzVertex3f::deepCopy(const RzVertex3f& other) {
 	for (unsigned int i = 0; i < 6; ++i) {
 		coordinates[i] = other.coordinates[i];
 	}
+
+	screen_x = other.screen_x;
+	screen_y = other.screen_y;
 	/*
 	setX(other.getX());
 	setY(other.getY());

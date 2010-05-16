@@ -30,9 +30,11 @@ public:
 	void setOrthoY(float);
 	void setOrthoZ(float);
 
+
 	void deepCopy(const RzVertex3f&);
 
 	float coordinates[6];
+	float screen_x, screen_y;
 };
 
 #endif /* RZVERTEX3F_H_ */

@@ -24,6 +24,9 @@
 
 
 #include "matrixmath.h"
+#include <sstream>
+#include <string>
+using namespace std;
 
 // DEFINES ////////////////////////////////////////////////
 
@@ -1918,7 +1921,7 @@ void Mat_Mul_VECTOR4D_4X4(VECTOR4D_PTR  va,
         {
         // compute dot product from row of ma 
         // and column of mb
-        float sum = 0; // used to hold result
+        float sum = 0.0; // used to hold result
 
         for (int row=0; row<4; row++)
              {
@@ -1935,6 +1938,32 @@ void Mat_Mul_VECTOR4D_4X4(VECTOR4D_PTR  va,
 
 ////////////////////////////////////////////////////////////////////
 
+void Mat_Mul_4X4_VECTOR4D(MATRIX4X4_PTR ma,
+                          VECTOR4D_PTR  vb,                          VECTOR4D_PTR  vprod)
+{
+// this function multiplies a 4X4 matrix against a VECTOR4D
+// - ma*vb and stores the result in mprod
+// the function makes no assumptions
+
+    for (int row=0; row < 4; row++)
+        {
+        // compute dot product from row of ma to vb
+        float sum = 0.0; // used to hold result
+
+        for (int col=0; col<4; col++)
+             {
+             // add in next product pair
+			 sum+=(ma->M[row][col]*vb->M[col]);
+             } // end for index
+
+        // insert resulting row element
+        vprod->M[row] = sum;
+
+        } // end for row
+
+} // end Mat_Mul_VECTOR4D_4X4
+
+////////////////////////////////////////////////////////////////////
 void Mat_Mul_VECTOR4D_4X3(VECTOR4D_PTR  va, 
                           MATRIX4X4_PTR mb,
                           VECTOR4D_PTR  vprod)
@@ -2323,6 +2352,31 @@ else
 
 } // end Intersect_Parm_Line3D_Plane3D
 
+string MATRIX4X4_To_String(MATRIX4X4_PTR ma) {
+	stringstream ss;
+	ss.clear();
+	ss << "matrix row by row: ";
+	for (int row = 0; row < 4; row++) {
+		ss << endl;
+		for (int col = 0; col < 4; col++) {
+			ss << ma->M[row][col] << "\t";
+		}
+	}
+	return ss.str();
+}
+
+string VECTOR4D_To_String(VECTOR4D_PTR ma) {
+	stringstream ss;
+	ss.clear();
+	ss << "vector4d: (";
+	int row;
+	for (row = 0; row < 3; row++) {
+		ss << ma->M[row] << ", ";
+	}
+	ss << ma->M[row] << ")" << endl;
+
+	return ss.str();
+}
 /////////////////////////////////////////////////////////////////
 
 
