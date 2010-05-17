@@ -12,7 +12,7 @@
 #define DEBUG_ON
 
 #include <stdlib.h>
-#include <malloc.h>
+//#include <malloc.h>
 #include <memory.h>
 #include <string.h>
 #include <stdarg.h>
