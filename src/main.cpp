@@ -43,12 +43,12 @@ POINT3D camera_target = {0.0f, 0.0f, 0.0f};
 VECTOR3D camera_up = {0.0f, 1.0f, 0.0f};
 float near_z = -1.0f;
 float far_z = -5000;
-float field_of_view = PI / 2.0;
+float field_of_view = (float)PI / 2.0;
 
 //int numPointPlots = 0;
 //int maxPointPlots = 0;
-int numScanLines = 0;
-int maxScanLines = 1000000000;
+//int numScanLines = 0;
+//int maxScanLines = 1000000000;
 //int maxScanLines = 0;
 
 RzPolygonGroupCollection *collection;
@@ -179,8 +179,8 @@ void drawPoint2i(int x, int y, float z, RzColor3f *color) {
 	}
 }
 
-void drawPoint2iWithShading(int screen_x, int screen_y, float cam_x, float cam_y, float cam_z,
-		VECTOR3D_PTR surface_normal, RzColor3f *surface_color) {
+void drawPoint2iWithShading(int screen_x, int screen_y, float camera_space_x, float camera_space_y,
+		float camera_space_z, VECTOR3D_PTR surface_normal, RzColor3f *surface_color) {
 
 	RzColor3f color;
 
@@ -193,17 +193,19 @@ void drawPoint2iWithShading(int screen_x, int screen_y, float cam_x, float cam_y
 //	float cam_x = ((float)WINDOW_WIDTH / 2.0f - (float)screen_x) * factor;
 //	float cam_y = ((float)WINDOW_HEIGHT / 2.0f - (float)screen_y) * factor;
 
-	VECTOR3D light_vector = { relative_light_pos.x - cam_x,
-			relative_light_pos.y - cam_y,
-			relative_light_pos.z - cam_z
+	VECTOR3D light_vector = { relative_light_pos.x - camera_space_x,
+			relative_light_pos.y - camera_space_y,
+			relative_light_pos.z - camera_space_z
 	};
+
 	VECTOR3D_Normalize(&light_vector);
 	VECTOR3D_Normalize(surface_normal);
 
-	VECTOR3D eye_vector = { -cam_x, -cam_y, -cam_z };
+	VECTOR3D eye_vector = { -camera_space_x, -camera_space_y, -camera_space_z };
 	VECTOR3D_Normalize(&eye_vector);
 
 	VECTOR3D reflect_vector, scaled_normal, tmp_vector;
+
 	VECTOR3D_Scale(2.0f, surface_normal, &scaled_normal);
 	float surface_dot_light = VECTOR3D_Dot(surface_normal, &light_vector);
 	VECTOR3D_Scale(surface_dot_light, &scaled_normal, &tmp_vector);
@@ -233,8 +235,8 @@ void drawPoint2iWithShading(int screen_x, int screen_y, float cam_x, float cam_y
 		    );
 	}
 
-	drawPoint2i(screen_x, screen_y, cam_z, &color);
-	//drawPoint2i(x, y, z, surface_color);
+	drawPoint2i(screen_x, screen_y, camera_space_z, &color);
+	//drawPoint2i(screen_x, screen_y, camera_space_z, surface_color);
 }
 
 void drawPoint2f(float x, float y, float z, RzColor3f *color) {
@@ -321,13 +323,13 @@ void fillFlatTop(RzVertex3f *top, RzVertex3f *mid, RzVertex3f *bottom, RzVertex3
 		xMin = intify(xLeft);
 		xMax = intify(xRight);
 
-		if (xMin < xMax) {
-			if (numScanLines >= maxScanLines) {
-				return;
-			} else {
-				++numScanLines;
-			}
-		}
+//		if (xMin < xMax) {
+//			if (numScanLines >= maxScanLines) {
+//				return;
+//			} else {
+//				++numScanLines;
+//			}
+//		}
 
 		xPos = xMin;
 		while (xPos < xMax) {
@@ -399,13 +401,13 @@ void fillFlatBottom(RzVertex3f *top, RzVertex3f *mid, RzVertex3f *bottom, RzVert
 		xMin = intify(xLeft);
 		xMax = intify(xRight);
 
-		if (xMin < xMax) {
-			if (numScanLines >= maxScanLines) {
-				return;
-			} else {
-				++numScanLines;
-			}
-		}
+//		if (xMin < xMax) {
+//			if (numScanLines >= maxScanLines) {
+//				return;
+//			} else {
+//				++numScanLines;
+//			}
+//		}
 
 		xPos = xMin;
 		while (xPos < xMax) {
@@ -534,7 +536,7 @@ void main_loop_function()
 
 
 		//numPointPlots = 0;
-		numScanLines = 0;
+		//numScanLines = 0;
 
 		// initialize the buffers
 		for (x = 0; x < WINDOW_WIDTH; ++x) {
@@ -610,7 +612,7 @@ void main_loop_function()
 		Mat_Init_4X4(&transform_matrix,
 				1, 0, 0, -camera_position.x,
 				0, 1, 0, -camera_position.y,
-				0, 1, 1, -camera_position.z,
+				0, 0, 1, -camera_position.z,
 				0, 0, 0, 1);
 
 		Mat_Mul_4X4(&transform_matrix, &model_transform_matrix, &result_4x4);
@@ -622,9 +624,8 @@ void main_loop_function()
 
 		// calculate u, v, w vectors
 		VECTOR3D tmp_vector;
-		VECTOR3D w = VECTOR3D_Sub(&camera_target, &camera_position);
+		VECTOR3D w = VECTOR3D_Sub(&camera_position, &camera_target);
 		VECTOR3D_Normalize(&w);
-		VECTOR3D_Scale(-1.0, &w);
 
 		VECTOR3D u = VECTOR3D_Cross(&camera_up, &w);
 		VECTOR3D_Normalize(&u);
@@ -638,6 +639,7 @@ void main_loop_function()
 					v.x, v.y, v.z, 0,
 					w.x, w.y, w.z, 0,
 					0, 0, 0, 1);
+
 		Mat_Mul_4X4(&transform_matrix, &model_transform_matrix, &result_4x4);
 		MAT_COPY_4X4(&result_4x4, &model_transform_matrix);
 
@@ -678,8 +680,8 @@ void main_loop_function()
 
 		// viewport transform
 		Mat_Init_4X4(&transform_matrix,
-				(float)WINDOW_WIDTH / 2.0f, 0, 0, ((float)WINDOW_WIDTH - 1.0f) / 2.0f,
-				0, (float)WINDOW_HEIGHT / 2.0f, 0, ((float)WINDOW_HEIGHT - 1.0f) / 2.0f,
+				(float)WINDOW_WIDTH / 2.0f, 0, 0, (float)(WINDOW_WIDTH - 1) / 2.0f,
+				0, (float)WINDOW_HEIGHT / 2.0f, 0, (float)(WINDOW_HEIGHT - 1) / 2.0f,
 				0, 0, 1, 0,
 				0, 0, 0, 1);
 		Mat_Mul_4X4(&transform_matrix, &perspective_transform_matrix, &result_4x4);
@@ -959,25 +961,25 @@ void main_loop_function()
 							deltaTopMid = 1.0 / slopeTopMid;
 							deltaTopBottom = 1.0 / slopeTopBottom;
 
-							bool display = false;
-							if ((numScanLines + 1) == maxScanLines && lastNumScanLines != numScanLines) {
-								ss.clear();
-								display = true;
-								ss << "deltaTopMid: " << deltaTopMid << " deltaTopBottom: " << deltaTopBottom;
-								ss << " top: " << intify(topVertex->screen_x) << ", " << intify(topVertex->screen_y);
-								ss << " mid: " << intify(midVertex->screen_x) << ", " << intify(midVertex->screen_y);
-								ss << " bottom: " << intify(bottomVertex->screen_x) << ", " << intify(bottomVertex->screen_y);
-								ss << endl;
-								Debugger::getInstance().print(ss.str());
-								lastNumScanLines = numScanLines;
-							}
+//							bool display = false;
+//							if ((numScanLines + 1) == maxScanLines && lastNumScanLines != numScanLines) {
+//								ss.clear();
+//								display = true;
+//								ss << "deltaTopMid: " << deltaTopMid << " deltaTopBottom: " << deltaTopBottom;
+//								ss << " top: " << intify(topVertex->screen_x) << ", " << intify(topVertex->screen_y);
+//								ss << " mid: " << intify(midVertex->screen_x) << ", " << intify(midVertex->screen_y);
+//								ss << " bottom: " << intify(bottomVertex->screen_x) << ", " << intify(bottomVertex->screen_y);
+//								ss << endl;
+//								Debugger::getInstance().print(ss.str());
+//								lastNumScanLines = numScanLines;
+//							}
 
 							if (deltaTopMid < deltaTopBottom) {
-								if (display) {
-									ss.clear();
-									ss << "deltaTopMid < deltaTopBottom" << endl;
-									Debugger::getInstance().print(ss.str());
-								}
+//								if (display) {
+//									ss.clear();
+//									ss << "deltaTopMid < deltaTopBottom" << endl;
+//									Debugger::getInstance().print(ss.str());
+//								}
 								// top to mid is left
 								topLeft = midVertex;
 								topRight = topVertex;
@@ -1000,13 +1002,13 @@ void main_loop_function()
 								bottomLeftSlope = slopeTopBottom;
 								bottomRightSlope = slopeTopMid;
 							}
-							if (display) {
-								ss.clear();
-								ss << "isfinite(bottomRightSlope): " << isfinite(bottomRightSlope);
-								ss << " ";
-								ss << "isfinite(bottomLeftSlope): " << isfinite(bottomLeftSlope);
-								ss << endl;
-							}
+//							if (display) {
+//								ss.clear();
+//								ss << "isfinite(bottomRightSlope): " << isfinite(bottomRightSlope);
+//								ss << " ";
+//								ss << "isfinite(bottomLeftSlope): " << isfinite(bottomLeftSlope);
+//								ss << endl;
+//							}
 
 							fillFlatTop(topVertex, midVertex, bottomVertex, topLeft, topRight,
 									topLeftSlope, topRightSlope, color3f);
