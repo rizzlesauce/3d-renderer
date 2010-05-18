@@ -1963,6 +1963,32 @@ void Mat_Mul_4X4_VECTOR4D(MATRIX4X4_PTR ma,
 
 } // end Mat_Mul_VECTOR4D_4X4
 
+
+void Mat_Mul_3X3_VECTOR3D(MATRIX3X3_PTR ma,
+                          VECTOR3D_PTR  vb,                          VECTOR3D_PTR  vprod)
+{
+// this function multiplies a 3X3 matrix against a VECTOR3D
+// - ma*vb and stores the result in mprod
+// the function makes no assumptions
+
+    for (int row=0; row < 3; row++)
+        {
+        // compute dot product from row of ma to vb
+        float sum = 0.0; // used to hold result
+
+        for (int col=0; col<3; col++)
+             {
+             // add in next product pair
+			 sum+=(ma->M[row][col]*vb->M[col]);
+             } // end for index
+
+        // insert resulting row element
+        vprod->M[row] = sum;
+
+        } // end for row
+
+} // end Mat_Mul_VECTOR3D_3X3
+
 ////////////////////////////////////////////////////////////////////
 void Mat_Mul_VECTOR4D_4X3(VECTOR4D_PTR  va, 
                           MATRIX4X4_PTR mb,

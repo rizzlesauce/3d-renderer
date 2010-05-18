@@ -31,12 +31,19 @@ bool zBufferSet[WINDOW_WIDTH][WINDOW_HEIGHT];
 RzColor3f colorBuffer[WINDOW_WIDTH][WINDOW_HEIGHT];
 
 VECTOR3D light_pos = {-5.0f, 1.0f, 2.0f };
+POINT4D relative_light_pos;
 RzColor3f light_color;
 RzColor3f ambient_light;
 RzColor3f specular_highlight;
-float phong_exponent = 20.0f;
+float phong_exponent = 10.0f;
 
-float eye_z, near_z, far_z, other_factor;
+//float eye_z, near_z, far_z, other_factor;
+POINT3D camera_position = {0.0f, 0.0f, 20.0f};
+POINT3D camera_target = {0.0f, 0.0f, 0.0f};
+VECTOR3D camera_up = {0.0f, 1.0f, 0.0f};
+float near_z = -1.0f;
+float far_z = -5000;
+float field_of_view = PI / 2.0;
 
 //int numPointPlots = 0;
 //int maxPointPlots = 0;
@@ -172,25 +179,28 @@ void drawPoint2i(int x, int y, float z, RzColor3f *color) {
 	}
 }
 
-void drawPoint2iWithShading(int screen_x, int screen_y, float world_z, VECTOR3D_PTR surface_normal, RzColor3f *surface_color) {
+void drawPoint2iWithShading(int screen_x, int screen_y, float cam_x, float cam_y, float cam_z,
+		VECTOR3D_PTR surface_normal, RzColor3f *surface_color) {
+
 	RzColor3f color;
-	// extrapolate world view x and y
-	float little_z = eye_z - near_z;
-	float big_z = eye_z - world_z;
 
-	float factor = (big_z / little_z) / other_factor;
+//	// extrapolate world view x and y
+//	float little_z = eye_z - near_z;
+//	float big_z = eye_cam_zld_z;
+//
+//	float factor = (big_z / little_z) / other_factor;
+//
+//	float cam_x = ((float)WINDOW_WIDTH / 2.0f - (float)screen_x) * factor;
+//	float cam_y = ((float)WINDOW_HEIGHT / 2.0f - (float)screen_y) * factor;
 
-	float world_x = ((float)WINDOW_WIDTH / 2.0f - (float)screen_x) * factor;
-	float world_y = ((float)WINDOW_HEIGHT / 2.0f - (float)screen_y) * factor;
-
-	VECTOR3D light_vector = { light_pos.x - world_x,
-			light_pos.y - world_y,
-			light_pos.z - world_z
+	VECTOR3D light_vector = { relative_light_pos.x - cam_x,
+			relative_light_pos.y - cam_y,
+			relative_light_pos.z - cam_z
 	};
 	VECTOR3D_Normalize(&light_vector);
 	VECTOR3D_Normalize(surface_normal);
 
-	VECTOR3D eye_vector = { -world_x, -world_y, big_z };
+	VECTOR3D eye_vector = { -cam_x, -cam_y, -cam_z };
 	VECTOR3D_Normalize(&eye_vector);
 
 	VECTOR3D reflect_vector, scaled_normal, tmp_vector;
@@ -223,7 +233,7 @@ void drawPoint2iWithShading(int screen_x, int screen_y, float world_z, VECTOR3D_
 		    );
 	}
 
-	drawPoint2i(screen_x, screen_y, world_z, &color);
+	drawPoint2i(screen_x, screen_y, cam_z, &color);
 	//drawPoint2i(x, y, z, surface_color);
 }
 
@@ -232,27 +242,6 @@ void drawPoint2f(float x, float y, float z, RzColor3f *color) {
 	//int i_x = round1f(x);
 	//int i_y = round1f(y);
 	drawPoint2i(intify(x), intify(y), z, color);
-}
-
-float interpolateZ(float z1, float z2, float z3, float y1, float ys, float y2, float y3, float xa, float xp, float xb) {
-	/*
-	float za, zb, zp;
-
-	y1 = (float)intify(y1);
-	ys = (float)intify(ys);
-	y2 = (float)intify(y2);
-	y3 = (float)intify(y3);
-	xa = (float)intify(xa);
-	xp = (float)intify(xp);
-	xb = (float)intify(xb);
-
-	za = z1 - (z1 - z2) * (y1 - ys) / (y1 - y2);
-	zb = z1 - (z1 - z3) * (y1 - ys) / (y1 - y3);
-	zp = zb - (zb - za) * (xb - xp) / (xb - xa);
-
-	return zp;
-	*/
-	return interpolateComponent(z1, z2, z3, y1, ys, y2, y3, xa, xp, xb);
 }
 
 float interpolateComponent(float c1, float c2, float c3, float y1, float ys, float y2, float y3, float xa, float xs, float xb) {
@@ -287,49 +276,6 @@ void interpolateNormal(RzVertex3f *v1, float xa, float xs, float ys, float xb, R
 	}
 }
 
-/*
-float interpolateZhorizontal(float za, float zb, float xa, float xp, float xb) {
-	float zp;
-
-	zp = zb - (zb - za) * (xb - xp) / (xb - xa);
-	return zp;
-}
-*/
-
-/*
-void fillLine(RzVertex3f *v1, RzVertex3f *v2, RzColor3f *color3f) {
-	float slope = computeSlope2d(v1, v2);
-
-}
-*/
-
-/*
-void fillHorizontalLine(RzVertex3f *v1, RzVertex3f *v2, RzColor3f *color3f) {
-	float xLeft, xRight;
-	float xPosition;
-	float yPosition = v1->getY();
-	// fill in the line
-
-	xLeft = v1->getX();
-	xRight = v2->getX();
-
-	xPosition = xLeft;
-	while (xPosition < intify(xRight)) {
-		// draw the point
-		drawPoint2f(xPosition, yPosition,
-				interpolateZhorizontal(v1->getZ(),
-						v2->getZ(),
-						xLeft,
-						xPosition,
-						xRight
-						),
-						color3f);
-
-		xPosition += 1.0;
-	}
-}
-*/
-
 void fillFlatTop(RzVertex3f *top, RzVertex3f *mid, RzVertex3f *bottom, RzVertex3f *left, RzVertex3f *right,
 		float leftSlope, float rightSlope, RzColor3f *color3f) {
 
@@ -347,6 +293,7 @@ void fillFlatTop(RzVertex3f *top, RzVertex3f *mid, RzVertex3f *bottom, RzVertex3
 	int xPos;
 	float xLeft, xRight;
 	int xMin, xMax;
+	float cam_x, cam_y, cam_z;
 
 	VECTOR3D surface_normal;
 
@@ -385,18 +332,18 @@ void fillFlatTop(RzVertex3f *top, RzVertex3f *mid, RzVertex3f *bottom, RzVertex3
 		xPos = xMin;
 		while (xPos < xMax) {
 			interpolateNormal(bottom, xLeft, (float)xPos, (float)yPos, xRight, mid, top, &surface_normal);
+			cam_x = interpolateComponent(bottom->getX(), mid->getX(), top->getX(),
+					bottom->screen_y, (float)yPos, mid->screen_y, top->screen_y,
+					xLeft, (float)xPos, xRight);
+			cam_y = interpolateComponent(bottom->getY(), mid->getY(), top->getY(),
+					bottom->screen_y, (float)yPos, mid->screen_y, top->screen_y,
+					xLeft, (float)xPos, xRight);
+			cam_z = interpolateComponent(bottom->getZ(), mid->getZ(), top->getZ(),
+					bottom->screen_y, (float)yPos, mid->screen_y, top->screen_y,
+					xLeft, (float)xPos, xRight);
+
 			drawPoint2iWithShading(xPos, yPos,
-					interpolateZ(bottom->getZ(),
-							mid->getZ(),
-							top->getZ(),
-							bottom->screen_y,
-							(float)yPos,
-							mid->screen_y,
-							top->screen_y,
-							xLeft,
-							(float)xPos,
-							xRight
-							),
+					cam_x, cam_y, cam_z,
 					&surface_normal,
 					color3f
 					);
@@ -426,6 +373,7 @@ void fillFlatBottom(RzVertex3f *top, RzVertex3f *mid, RzVertex3f *bottom, RzVert
 	float xLeft, xRight;
 	int xMin, xMax;
 	VECTOR3D surface_normal;
+	float cam_x, cam_y, cam_z;
 
 	//xMin = xMaxLeft = xRight = (float)intify(bottom->screen_x);
 
@@ -462,18 +410,18 @@ void fillFlatBottom(RzVertex3f *top, RzVertex3f *mid, RzVertex3f *bottom, RzVert
 		xPos = xMin;
 		while (xPos < xMax) {
 			interpolateNormal(top, xLeft, (float)xPos, (float)yPos, xRight, mid, bottom, &surface_normal);
+			cam_x = interpolateComponent(top->getX(), mid->getX(), bottom->getX(),
+					top->screen_y, (float)yPos, mid->screen_y, bottom->screen_y,
+					xLeft, (float)xPos, xRight);
+			cam_y = interpolateComponent(top->getY(), mid->getY(), bottom->getY(),
+					top->screen_y, (float)yPos, mid->screen_y, bottom->screen_y,
+					xLeft, (float)xPos, xRight);
+			cam_z = interpolateComponent(top->getZ(), mid->getZ(), bottom->getZ(),
+					top->screen_y, (float)yPos, mid->screen_y, bottom->screen_y,
+					xLeft, (float)xPos, xRight);
+
 			drawPoint2iWithShading(xPos, yPos,
-					interpolateZ(top->getZ(),
-							mid->getZ(),
-							bottom->getZ(),
-							top->screen_y,
-							(float)yPos,
-							mid->screen_y,
-							bottom->screen_y,
-							xLeft,
-							(float)xPos,
-							xRight
-							),
+					cam_x, cam_y, cam_z,
 					&surface_normal,
 					color3f
 			);
@@ -519,25 +467,22 @@ void main_loop_function()
 	MATRIX4X4 normal_transform_matrix,
 		model_transform_matrix,
 		result_4x4,
-		transform_matrix;
+		transform_matrix,
+		perspective_transform_matrix,
+		light_transform_matrix;
 
 	bool draw_triangles = false;
-	//float angle;
-	//float xAdd = 0;
-	//float yAdd = 0;
-	//float zAdd = 0.0;
 
 	int lastNumScanLines = 0;
 
-	eye_z = 10.0f;
-	near_z = 9.0f;
-	other_factor = 200.0f;
-	far_z = -1000.0f;
-
 	float move_amount = 0.1f;
 	float rotation = 0.0f;
+	float rotation_amount = 0.05f;
 	float cos_rot;
 	float sin_rot;
+
+	float angle = 0.0f;
+	float angle_amount = 0.05f;
 
 	float translate_x = 0.0f;
 	float translate_y = 0.0f;
@@ -609,6 +554,10 @@ void main_loop_function()
 		MAT_IDENTITY_4X4(&model_transform_matrix);
 		// normal transform init
 		MAT_IDENTITY_4X4(&normal_transform_matrix);
+		// light transform init
+		MAT_IDENTITY_4X4(&light_transform_matrix);
+		// perspective transform matrix
+		MAT_IDENTITY_4X4(&perspective_transform_matrix);
 
 		// scale transform
 		// model scale
@@ -653,14 +602,90 @@ void main_loop_function()
 		MAT_COPY_4X4(&result_4x4, &model_transform_matrix);
 
 		// normal rotation
-		Mat_Init_4X4(&transform_matrix,
-				cos_rot, 0, sin_rot, 0,
-				0, 1, 0, 0,
-				-sin_rot, 0, cos_rot, 0,
-				0, 0, 0, 1);
-
 		Mat_Mul_4X4(&transform_matrix, &normal_transform_matrix, &result_4x4);
 		MAT_COPY_4X4(&result_4x4, &normal_transform_matrix);
+
+		// view transformations
+		// translate eye to origin
+		Mat_Init_4X4(&transform_matrix,
+				1, 0, 0, -camera_position.x,
+				0, 1, 0, -camera_position.y,
+				0, 1, 1, -camera_position.z,
+				0, 0, 0, 1);
+
+		Mat_Mul_4X4(&transform_matrix, &model_transform_matrix, &result_4x4);
+		MAT_COPY_4X4(&result_4x4, &model_transform_matrix);
+
+		// translate light sources
+		Mat_Mul_4X4(&transform_matrix, &light_transform_matrix, &result_4x4);
+		MAT_COPY_4X4(&result_4x4, &light_transform_matrix);
+
+		// calculate u, v, w vectors
+		VECTOR3D tmp_vector;
+		VECTOR3D w = VECTOR3D_Sub(&camera_target, &camera_position);
+		VECTOR3D_Normalize(&w);
+		VECTOR3D_Scale(-1.0, &w);
+
+		VECTOR3D u = VECTOR3D_Cross(&camera_up, &w);
+		VECTOR3D_Normalize(&u);
+
+		VECTOR3D v = VECTOR3D_Cross(&w, &u);
+		VECTOR3D_Normalize(&v);
+
+		// perform change of basis
+		Mat_Init_4X4(&transform_matrix,
+					u.x, u.y, u.z, 0,
+					v.x, v.y, v.z, 0,
+					w.x, w.y, w.z, 0,
+					0, 0, 0, 1);
+		Mat_Mul_4X4(&transform_matrix, &model_transform_matrix, &result_4x4);
+		MAT_COPY_4X4(&result_4x4, &model_transform_matrix);
+
+		// for normals too
+		Mat_Mul_4X4(&transform_matrix, &normal_transform_matrix, &result_4x4);
+		MAT_COPY_4X4(&result_4x4, &normal_transform_matrix);
+
+		// for light source too
+		Mat_Mul_4X4(&transform_matrix, &light_transform_matrix, &result_4x4);
+		MAT_COPY_4X4(&result_4x4, &light_transform_matrix);
+
+
+		// perspective transform
+		Mat_Init_4X4(&transform_matrix,
+				near_z, 0, 0, 0,
+				0, near_z, 0, 0,
+				0, 0, near_z + far_z, -(far_z * near_z),
+				0, 0, 1, 0);
+		Mat_Mul_4X4(&transform_matrix, &perspective_transform_matrix, &result_4x4);
+		MAT_COPY_4X4(&result_4x4, &perspective_transform_matrix);
+
+		// not for normals or light source
+
+		// calculate canonical view boundaries
+		float can_top = tan(field_of_view / 2.0f) * near_z;
+		float can_bottom = -can_top;
+		float can_left = can_bottom;
+		float can_right = can_top;
+
+		// canonical view transform
+		Mat_Init_4X4(&transform_matrix,
+				2.0f / (can_right - can_left), 0, 0, -((can_right + 1.0f) / (can_right - 1.0f)),
+				0, 2.0f / (can_top - can_bottom), 0, -((can_top + can_bottom) / (can_top - can_bottom)),
+				0, 0, 2.0f / (near_z - far_z), -((near_z + far_z) / (near_z - far_z)),
+				0, 0, 0, 1);
+		Mat_Mul_4X4(&transform_matrix, &perspective_transform_matrix, &result_4x4);
+		MAT_COPY_4X4(&result_4x4, &perspective_transform_matrix);
+
+		// viewport transform
+		Mat_Init_4X4(&transform_matrix,
+				(float)WINDOW_WIDTH / 2.0f, 0, 0, ((float)WINDOW_WIDTH - 1.0f) / 2.0f,
+				0, (float)WINDOW_HEIGHT / 2.0f, 0, ((float)WINDOW_HEIGHT - 1.0f) / 2.0f,
+				0, 0, 1, 0,
+				0, 0, 0, 1);
+		Mat_Mul_4X4(&transform_matrix, &perspective_transform_matrix, &result_4x4);
+		MAT_COPY_4X4(&result_4x4, &perspective_transform_matrix);
+
+		// end matrix chains
 
 		//matrices.push_back(translate_matrix);
 
@@ -685,6 +710,11 @@ void main_loop_function()
 		Debugger::getInstance().print(ss.str());
 		*/
 
+		// transform the light source
+		VECTOR4D_INITXYZ(&vertex_vector, light_pos.x,
+				light_pos.y, light_pos.z);
+		Mat_Mul_4X4_VECTOR4D(&light_transform_matrix, &vertex_vector, &relative_light_pos);
+
 		for (polygonGroupIndex = 0; polygonGroupIndex < perspectified->polygonGroups.size(); ++polygonGroupIndex) {
 			polygonGroup = &perspectified->polygonGroups[polygonGroupIndex];
 			color3f = &polygonGroup->color;
@@ -700,16 +730,11 @@ void main_loop_function()
 			for (polygonIndex = 0; polygonIndex < polygonGroup->polygons.size(); ++polygonIndex) {
 				polygon = &polygonGroup->polygons[polygonIndex];
 
-				// convert vertices to perspective
+				// perform transformations
 				for (vertexIndex = 0; vertexIndex < polygon->vertices.size(); ++vertexIndex) {
 					vertex3f = &polygon->vertices[vertexIndex];
 
-//					vertex3f->screen_x = 350 - (vertex3f->getX() * 200);
-//					vertex3f->screen_y = 350 - (vertex3f->getY() * 200);
-//
-//					continue;
-
-					// perform matrix transforms on vertices
+					// perform matrix transforms on vertices (not including perspective)
 					VECTOR4D_INITXYZ(&vertex_vector, vertex3f->getX(), vertex3f->getY(), vertex3f->getZ());
 					Mat_Mul_4X4_VECTOR4D(&model_transform_matrix, &vertex_vector, &result_vector);
 
@@ -721,27 +746,22 @@ void main_loop_function()
 					VECTOR4D_INITXYZ(&normal_vector, vertex3f->getOrthoX(), vertex3f->getOrthoY(), vertex3f->getOrthoZ());
 					Mat_Mul_4X4_VECTOR4D(&normal_transform_matrix, &normal_vector, &result_vector);
 
-					// normalize normal vector
+					// normalize normal vectors
 					VECTOR4D_Normalize(&normal_vector);
 
 					vertex3f->setOrthoX(result_vector.x);
 					vertex3f->setOrthoY(result_vector.y);
 					vertex3f->setOrthoZ(result_vector.z);
 
-					// make perspective
-					float big_z = eye_z - vertex3f->getZ();
-					float little_z = eye_z - near_z;
+					// perform perspective transform on vertices (but keep original camera space coordinates)
+					VECTOR4D_INITXYZ(&vertex_vector, vertex3f->getX(), vertex3f->getY(), vertex3f->getZ());
+					Mat_Mul_4X4_VECTOR4D(&perspective_transform_matrix, &vertex_vector, &result_vector);
 
-					float factor = (little_z / big_z) * other_factor;
+					// homogeneous divide
+					VECTOR4D_DIV_BY_W(&result_vector);
 
-					float new_x = vertex3f->getX() * factor;
-					float new_y = vertex3f->getY() * factor;
-
-
-					vertex3f->screen_x = ((float)WINDOW_WIDTH / 2.0f) + new_x;
-					vertex3f->screen_y = ((float)WINDOW_HEIGHT / 2.0f) - new_y;
-
-
+					vertex3f->screen_x = result_vector.x;
+					vertex3f->screen_y = result_vector.y;
 
 					//drawPoint2i(vertex3f->screen_x, vertex3f->screen_y, vertex3f->getZ(), color3f);
 				}
@@ -1020,25 +1040,72 @@ void main_loop_function()
 			//++maxPointPlots;
 			//++maxScanLines;
 			//angle-=0.5;
-			rotation -= 0.05;
+
+			// move camera around origin
+			//angle += angle_amount;
+
+			cos_rot = cos(-angle_amount);
+			sin_rot = sin(-angle_amount);
+
+			MATRIX3X3 rotate_matrix = {
+					cos_rot, 0, sin_rot,
+					0, 1, 0,
+					-sin_rot, 0, cos_rot};
+
+			VECTOR3D result_3d;
+
+			Mat_Mul_3X3_VECTOR3D(&rotate_matrix, &camera_position, &result_3d);
+			VECTOR3D_COPY(&camera_position, &result_3d);
 		}
 		if(key[SDLK_LEFT]) {
 			//--maxPointPlots;
 			//--maxScanLines;
 			//angle+=0.5;
-			rotation += 0.05;
+			//rotation += 0.05;
+
+			// move camera around origin
+			//angle -= angle_amount;
+
+			cos_rot = cos(angle_amount);
+			sin_rot = sin(angle_amount);
+
+			MATRIX3X3 rotate_matrix = {
+					cos_rot, 0, sin_rot,
+					0, 1, 0,
+					-sin_rot, 0, cos_rot};
+
+			VECTOR3D result_3d;
+
+			Mat_Mul_3X3_VECTOR3D(&rotate_matrix, &camera_position, &result_3d);
+			VECTOR3D_COPY(&camera_position, &result_3d);
 		}
 		if (key[SDLK_UP]) {
 			//zAdd += 10.0;
 			//Debugger::getInstance().print("up key");
-			eye_z -= move_amount;
-			near_z -= move_amount;
+
+			// move the camera toward the camera target
+			VECTOR3D target_vector = { camera_target.x - camera_position.x,
+					camera_target.y - camera_position.y,
+					camera_target.z - camera_position.z };
+			VECTOR3D_Normalize(&target_vector);
+			VECTOR3D_Scale(move_amount, &target_vector);
+			VECTOR3D_Add(&target_vector, &camera_position, &camera_position);
 		}
 		if (key[SDLK_DOWN]) {
 			//zAdd -= 10.0;
 			//Debugger::getInstance().print("down key");
-			eye_z += move_amount;
-			near_z += move_amount;
+			VECTOR3D target_vector = { camera_target.x - camera_position.x,
+					camera_target.y - camera_position.y,
+					camera_target.z - camera_position.z };
+			VECTOR3D_Normalize(&target_vector);
+			VECTOR3D_Scale(-move_amount, &target_vector);
+			VECTOR3D_Add(&target_vector, &camera_position, &camera_position);
+		}
+		if (key[SDLK_a]) {
+			rotation += rotation_amount;
+		}
+		if (key[SDLK_s]) {
+			rotation -= rotation_amount;
 		}
 		if (key[SDLK_z]) {
 			scale_factor -= scale_amount;
