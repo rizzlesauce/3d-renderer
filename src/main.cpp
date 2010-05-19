@@ -31,15 +31,16 @@ bool zBufferSet[WINDOW_WIDTH][WINDOW_HEIGHT];
 RzColor3f colorBuffer[WINDOW_WIDTH][WINDOW_HEIGHT];
 CS455FileParser parser;
 
-string modelFiles[] = { "apple.dat",
-		"arm.dat",
+string modelFiles[] = { //"apple.dat",
+		//"arm.dat",
 		"armory.dat",
 		"biplane.dat",
 		"camaro.dat",
-		"monster.dat",
-		"skull.dat" };
-int numModels = 7;
-int currentModelIndex = 3;
+		//"monster.dat",
+		//"skull.dat"
+};
+int numModels = 3;
+int currentModelIndex = 1;
 
 VECTOR3D light_pos = {-10.0f, 10.0f, 10.0f };
 //POINT3D light_pos = {0.0f, 1.0f, 5.0f};
@@ -1187,15 +1188,13 @@ void main_loop_function()
 			draw_triangles = !draw_triangles;
 		}
 		if (key[SDLK_n]) {
-			++currentModelIndex;
-			if (currentModelIndex > numModels - 1) {
+			if (++currentModelIndex > numModels - 1) {
 				currentModelIndex = 0;
 			}
 			loadModel(currentModelIndex);
 		}
 		if (key[SDLK_b]) {
-			--currentModelIndex;
-			if (currentModelIndex < 0) {
+			if (--currentModelIndex < 0) {
 				currentModelIndex = numModels - 1;
 			}
 			loadModel(currentModelIndex);
@@ -1307,7 +1306,11 @@ int main(int argc, char *argv[]) {
 
 	main_loop_function();
 
-	delete collection;
+	if (collection == NULL) {
+
+	} else {
+		delete collection;
+	}
 
 	return 0;
 }
