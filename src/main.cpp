@@ -29,8 +29,20 @@ bool key[321];
 float zBuffer[WINDOW_WIDTH][WINDOW_HEIGHT];
 bool zBufferSet[WINDOW_WIDTH][WINDOW_HEIGHT];
 RzColor3f colorBuffer[WINDOW_WIDTH][WINDOW_HEIGHT];
+CS455FileParser parser;
 
-VECTOR3D light_pos = {-5.0f, 1.0f, 2.0f };
+string modelFiles[] = { "apple.dat",
+		"arm.dat",
+		"armory.dat",
+		"biplane.dat",
+		"camaro.dat",
+		"monster.dat",
+		"skull.dat" };
+int numModels = 7;
+int currentModelIndex = 3;
+
+VECTOR3D light_pos = {-10.0f, 10.0f, 10.0f };
+//POINT3D light_pos = {0.0f, 1.0f, 5.0f};
 POINT4D relative_light_pos;
 RzColor3f light_color;
 RzColor3f ambient_light;
@@ -51,7 +63,7 @@ float field_of_view = (float)PI / 2.0;
 //int maxScanLines = 1000000000;
 //int maxScanLines = 0;
 
-RzPolygonGroupCollection *collection;
+RzPolygonGroupCollection *collection = NULL;
 RzPolygonGroupCollection *perspectified;
 
 // Process pending events
@@ -435,6 +447,19 @@ void fillFlatBottom(RzVertex3f *top, RzVertex3f *mid, RzVertex3f *bottom, RzVert
 	}
 }
 
+string getModelPath(int modelIndex) {
+	return "data/" + modelFiles[modelIndex];
+}
+
+void loadModel(int modelIndex) {
+	if (collection == NULL) {
+
+	} else {
+		delete collection;
+	}
+	collection = parser.parseFile(getModelPath(modelIndex));
+}
+
 void main_loop_function()
 {
 	//vector<MATRIX4X4> matrices;
@@ -464,7 +489,7 @@ void main_loop_function()
 	float deltaTopBottom;
 	float deltaMidBottom;
 	float scale_factor = 1.0f;
-	float scale_amount = 0.005f;
+	float scale_amount = 0.05f;
 	VECTOR4D vertex_vector, result_vector, normal_vector;
 	MATRIX4X4 normal_transform_matrix,
 		model_transform_matrix,
@@ -475,15 +500,14 @@ void main_loop_function()
 
 	bool draw_triangles = false;
 
-	int lastNumScanLines = 0;
+	//int lastNumScanLines = 0;
 
-	float move_amount = 0.1f;
+	float move_amount = 0.5f;
 	float rotation = 0.0f;
 	float rotation_amount = 0.05f;
 	float cos_rot;
 	float sin_rot;
 
-	float angle = 0.0f;
 	float angle_amount = 0.05f;
 
 	float translate_x = 0.0f;
@@ -491,7 +515,7 @@ void main_loop_function()
 	float translate_z = 0.0f;
 	float translate_amount = 0.5;
 
-	int mycount = RAND_RANGE(0, 30);
+	//int mycount = RAND_RANGE(0, 30);
 
 	light_color.setRed(1.0f);
 	light_color.setGreen(1.0f);
@@ -623,10 +647,10 @@ void main_loop_function()
 		MAT_COPY_4X4(&result_4x4, &light_transform_matrix);
 
 		// calculate u, v, w vectors
-		VECTOR3D tmp_vector;
 		VECTOR3D w = VECTOR3D_Sub(&camera_position, &camera_target);
 		VECTOR3D_Normalize(&w);
 
+		VECTOR3D_Normalize(&camera_up);
 		VECTOR3D u = VECTOR3D_Cross(&camera_up, &w);
 		VECTOR3D_Normalize(&u);
 
@@ -654,9 +678,10 @@ void main_loop_function()
 
 		// perspective transform
 		Mat_Init_4X4(&transform_matrix,
-				near_z, 0, 0, 0,
+				-near_z, 0, 0, 0,
 				0, near_z, 0, 0,
-				0, 0, near_z + far_z, -(far_z * near_z),
+				//0, 0, near_z + far_z, -(far_z * near_z),
+				0, 0, 0, 0,
 				0, 0, 1, 0);
 		Mat_Mul_4X4(&transform_matrix, &perspective_transform_matrix, &result_4x4);
 		MAT_COPY_4X4(&result_4x4, &perspective_transform_matrix);
@@ -673,7 +698,8 @@ void main_loop_function()
 		Mat_Init_4X4(&transform_matrix,
 				2.0f / (can_right - can_left), 0, 0, -((can_right + can_left) / (can_right - can_left)),
 				0, 2.0f / (can_top - can_bottom), 0, -((can_top + can_bottom) / (can_top - can_bottom)),
-				0, 0, 2.0f / (near_z - far_z), -((near_z + far_z) / (near_z - far_z)),
+				//0, 0, 2.0f / (near_z - far_z), -((near_z + far_z) / (near_z - far_z)),
+				0, 0, 0, 0,
 				0, 0, 0, 1);
 		Mat_Mul_4X4(&transform_matrix, &perspective_transform_matrix, &result_4x4);
 		MAT_COPY_4X4(&result_4x4, &perspective_transform_matrix);
@@ -716,6 +742,20 @@ void main_loop_function()
 		VECTOR4D_INITXYZ(&vertex_vector, light_pos.x,
 				light_pos.y, light_pos.z);
 		Mat_Mul_4X4_VECTOR4D(&light_transform_matrix, &vertex_vector, &relative_light_pos);
+
+		/*
+		// draw the light source in the view
+		// perform perspective transform on vertices
+		VECTOR4D_INITXYZ(&vertex_vector, relative_light_pos.x,
+				relative_light_pos.y, relative_light_pos.z);
+		Mat_Mul_4X4_VECTOR4D(&perspective_transform_matrix, &vertex_vector, &result_vector);
+
+		// homogeneous divide
+		VECTOR4D_DIV_BY_W(&result_vector);
+
+		drawPoint2iForReal(intify(result_vector.x), intify(result_vector.y), relative_light_pos.z,
+				&light_color);
+		*/
 
 		for (polygonGroupIndex = 0; polygonGroupIndex < perspectified->polygonGroups.size(); ++polygonGroupIndex) {
 			polygonGroup = &perspectified->polygonGroups[polygonGroupIndex];
@@ -1046,8 +1086,8 @@ void main_loop_function()
 			// move camera around origin
 			//angle += angle_amount;
 
-			cos_rot = cos(-angle_amount);
-			sin_rot = sin(-angle_amount);
+			cos_rot = cos(angle_amount);
+			sin_rot = sin(angle_amount);
 
 			MATRIX3X3 rotate_matrix = {
 					cos_rot, 0, sin_rot,
@@ -1068,8 +1108,8 @@ void main_loop_function()
 			// move camera around origin
 			//angle -= angle_amount;
 
-			cos_rot = cos(angle_amount);
-			sin_rot = sin(angle_amount);
+			cos_rot = cos(-angle_amount);
+			sin_rot = sin(-angle_amount);
 
 			MATRIX3X3 rotate_matrix = {
 					cos_rot, 0, sin_rot,
@@ -1146,7 +1186,20 @@ void main_loop_function()
 		if (key[SDLK_t]) {
 			draw_triangles = !draw_triangles;
 		}
-
+		if (key[SDLK_n]) {
+			++currentModelIndex;
+			if (currentModelIndex > numModels - 1) {
+				currentModelIndex = 0;
+			}
+			loadModel(currentModelIndex);
+		}
+		if (key[SDLK_b]) {
+			--currentModelIndex;
+			if (currentModelIndex < 0) {
+				currentModelIndex = numModels - 1;
+			}
+			loadModel(currentModelIndex);
+		}
 		delete perspectified;
 	}
 }
@@ -1198,9 +1251,7 @@ int main(int argc, char *argv[]) {
 	SDL_SetVideoMode(WINDOW_WIDTH, WINDOW_HEIGHT, bpp, vidFlags);
 	GL_Setup(WINDOW_WIDTH, WINDOW_HEIGHT);
 
-	// parse the data file
-	CS455FileParser parser;
-	collection = parser.parseFile("data/biplane.dat");
+	loadModel(currentModelIndex);
 
 	/*
 	// find the bounding box
