@@ -669,7 +669,7 @@ void main_loop_function()
 
 		// canonical view transform
 		Mat_Init_4X4(&transform_matrix,
-				2.0f / (can_right - can_left), 0, 0, -((can_right + 1.0f) / (can_right - 1.0f)),
+				2.0f / (can_right - can_left), 0, 0, -((can_right + can_left) / (can_right - can_left)),
 				0, 2.0f / (can_top - can_bottom), 0, -((can_top + can_bottom) / (can_top - can_bottom)),
 				0, 0, 2.0f / (near_z - far_z), -((near_z + far_z) / (near_z - far_z)),
 				0, 0, 0, 1);
