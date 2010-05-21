@@ -269,6 +269,9 @@ extern USHORT RGB16Bit555(int r, int g, int b);
 #define EPSILON_E5 (float)(1E-5)
 #define EPSILON_E6 (float)(1E-6)
 
+// floating point comparison
+#define FCMP(a,b) ( (fabs(a-b) < EPSILON_E3) ? 1 : 0)
+
 // defines for parametric line intersections
 #define PARM_LINE_NO_INTERSECT          0
 #define PARM_LINE_INTERSECT_IN_SEGMENT  1

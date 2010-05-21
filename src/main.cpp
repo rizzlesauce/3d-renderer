@@ -58,8 +58,8 @@ float near_z = -1.0f;
 float far_z = -5000;
 float field_of_view = (float)PI / 2.0;
 
-//int numPointPlots = 0;
-//int maxPointPlots = 0;
+int numPointPlots;
+int maxPointPlots = 0;
 //int numScanLines = 0;
 //int maxScanLines = 1000000000;
 //int maxScanLines = 0;
@@ -113,10 +113,14 @@ int round1f(float f) {
 	return floor(0.5 + f);
 }
 
+int ceil1f(float f) {
+	return ceil(f);
+}
+
 int intify(float f) {
 	//return floor(f);
-	return round1f(f);
-	//return ceil(f);
+	//return round1f(f);
+	return ceil1f(f);
 }
 
 float computeSlope2d(RzVertex3f *v1, RzVertex3f *v2) {
@@ -161,14 +165,12 @@ bool compareVertexYs(RzVertex3f v1, RzVertex3f v2) {
 
 void drawPoint2iForReal(int x, int y, float z, RzColor3f *color) {
 
-	/*
-	if (numPointPlots >= maxPointPlots) {
-		// maxed out
-		return;
-	} else {
-		++numPointPlots;
-	}
-	*/
+//	if (numPointPlots >= maxPointPlots) {
+//		// maxed out
+//		return;
+//	} else {
+//		++numPointPlots;
+//	}
 
 	zBufferSet[x][y] = true;
 	zBuffer[x][y] = z;
@@ -291,50 +293,64 @@ void interpolateNormal(RzVertex3f *v1, float xa, float xs, float ys, float xb, R
 	}
 }
 
-void fillFlatTop(RzVertex3f *top, RzVertex3f *mid, RzVertex3f *bottom, RzVertex3f *left, RzVertex3f *right,
-		float leftSlope, float rightSlope, RzColor3f *color3f) {
-
-	float bLeft, bRight;
-
-	if (isfinite(leftSlope)) {
-		bLeft = (float)intify(left->screen_y) - leftSlope * (float)intify(left->screen_x);
-	}
-	if (isfinite(rightSlope)) {
-		bRight = (float)intify(right->screen_y) - rightSlope * (float)intify(right->screen_x);
+void fillFlatTop(RzVertex3f *v1, RzVertex3f *v2, RzVertex3f *bottom, RzColor3f *color3f) {
+	RzVertex3f *left, *right;
+	if (v1->screen_x < v2->screen_x) {
+		left = v1;
+		right = v2;
+	} else {
+		left = v2;
+		right = v1;
 	}
 
-	int yPos = intify(bottom->screen_y);
-	int yEnd = intify(mid->screen_y);
+	float height = bottom->screen_y - left->screen_y;
+
+	/*
+	if (height < 1.0f) {
+		return;
+	}
+	*/
+
+	float left_dx = (bottom->screen_x - left->screen_x) / height;
+	float right_dx = (bottom->screen_x - right->screen_x) / height;
+
+	int yPos = intify(left->screen_y);
+	int yEnd = intify(bottom->screen_y);
 	int xPos;
-	float xLeft, xRight;
+	float y_bump = yPos - left->screen_y;
+	float x_left = left->screen_x + left_dx * y_bump;
+	float x_right = right->screen_x + right_dx * y_bump;
 	int xMin, xMax;
-	float cam_x, cam_y, cam_z;
-
 	VECTOR3D surface_normal;
 
-	//xMin = xMaxLeft = xRight = (float)intify(bottom->screen_x);
+	float left_dz = (bottom->getZ() - left->getZ()) / height;
+	float right_dz = (bottom->getZ() - right->getZ()) / height;
+	float z_left = left->getZ() + left_dz * y_bump;
+	float z_right = right->getZ() + right_dz * y_bump;
+	float z_value;
+	float horizontal_dz;
 
-	//RzColor3f color;
-	//color.setRed(1.0);
-	//drawPoint2i(intify(bottom->screen_x), intify(bottom->screen_y), bottom->getZ(), &color);
+	float left_dcx = (bottom->getX() - left->getX()) / height;
+	float right_dcx = (bottom->getX() - right->getX()) / height;
+	float cx_left = left->getX() + left_dcx * y_bump;
+	float cx_right = right->getX() + right_dcx * y_bump;
+	float cx_value;
+	float horizontal_dcx;
 
-	while (yPos > yEnd) {
+	float left_dcy = (bottom->getY() - left->getY()) / height;
+	float right_dcy = (bottom->getY() - right->getY()) / height;
+	float cy_left = left->getY() + left_dcy * y_bump;
+	float cy_right = right->getY() + right_dcy * y_bump;
+	float cy_value;
+	float horizontal_dcy;
+
+	float line_width;
+
+	while (yPos < yEnd) {
 		// fill in the line
 
-		if (isfinite(leftSlope)) {
-			xLeft = ((float)yPos - bLeft) / leftSlope;
-		} else {
-			xLeft = (float)intify(left->screen_x);
-		}
-
-		if (isfinite(rightSlope)) {
-			xRight = ((float)yPos - bRight) / rightSlope;
-		} else {
-			xRight = (float)intify(right->screen_x);
-		}
-
-		xMin = intify(xLeft);
-		xMax = intify(xRight);
+		xMin = intify(x_left);
+		xMax = intify(x_right);
 
 //		if (xMin < xMax) {
 //			if (numScanLines >= maxScanLines) {
@@ -343,35 +359,53 @@ void fillFlatTop(RzVertex3f *top, RzVertex3f *mid, RzVertex3f *bottom, RzVertex3
 //				++numScanLines;
 //			}
 //		}
+		line_width = x_right - x_left;
+
+		horizontal_dz = line_width / (z_right - z_left);
+		z_value = z_left;
+
+		horizontal_dcx = line_width / (cx_right - cx_left);
+		cx_value = cx_left;
+
+		horizontal_dcy = line_width / (cy_right - cy_left);
+		cy_value = cy_left;
 
 		xPos = xMin;
 		while (xPos < xMax) {
-			interpolateNormal(bottom, xLeft, (float)xPos, (float)yPos, xRight, mid, top, &surface_normal);
-			cam_x = interpolateComponent(bottom->getX(), mid->getX(), top->getX(),
-					bottom->screen_y, (float)yPos, mid->screen_y, top->screen_y,
-					xLeft, (float)xPos, xRight);
-			cam_y = interpolateComponent(bottom->getY(), mid->getY(), top->getY(),
-					bottom->screen_y, (float)yPos, mid->screen_y, top->screen_y,
-					xLeft, (float)xPos, xRight);
-			cam_z = interpolateComponent(bottom->getZ(), mid->getZ(), top->getZ(),
-					bottom->screen_y, (float)yPos, mid->screen_y, top->screen_y,
-					xLeft, (float)xPos, xRight);
-
+			//interpolateNormal(bottom, xLeft, (float)xPos, (float)yPos, xRight, right, left, &surface_normal);
 			drawPoint2iWithShading(xPos, yPos,
-					cam_x, cam_y, cam_z,
+					cx_value, cy_value, z_value,
 					&surface_normal,
 					color3f
 					);
+			//drawPoint2iForReal(xPos, yPos, -1.0f, color3f);
 
 			++xPos;
+
+			z_value += horizontal_dz;
+			cx_value += horizontal_dcx;
+			cy_value += horizontal_dcy;
 		}
 
-		--yPos;
+		++yPos;
+
+		x_left += left_dx;
+		x_right += right_dx;
+
+		z_left += left_dz;
+		z_right += right_dz;
+
+		cx_left += left_dcx;
+		cx_right += right_dcx;
+
+		cy_left += left_dcy;
+		cy_right += right_dcy;
 	}
 }
 
 void fillFlatBottom(RzVertex3f *top, RzVertex3f *mid, RzVertex3f *bottom, RzVertex3f *left, RzVertex3f *right,
 		float leftSlope, float rightSlope, RzColor3f *color3f) {
+	return;
 
 	float bLeft, bRight;
 
@@ -560,7 +594,7 @@ void main_loop_function()
 //		continue;
 
 
-		//numPointPlots = 0;
+		numPointPlots = 0;
 		//numScanLines = 0;
 
 		// initialize the buffers
@@ -850,29 +884,35 @@ void main_loop_function()
 					}
 
 					// sort vertices with same y
-					if (intify(topVertex->screen_y) == intify(bottomVertex->screen_y)) {
+					if (FCMP(topVertex->screen_y, bottomVertex->screen_y)) {
 						// perfectly flat line
 						// sort by x value
-						if (intify(midVertex->screen_x) > intify(bottomVertex->screen_x)) {
-							swapPointers((void**)&midVertex, (void**)&bottomVertex);
-						}
-						if (intify(topVertex->screen_x) > intify(midVertex->screen_x)) {
-							swapPointers((void**)&topVertex, (void**)&midVertex);
-
-							if (intify(midVertex->screen_x) > intify(bottomVertex->screen_x)) {
-								swapPointers((void**)&midVertex, (void**)&bottomVertex);
-							}
-						}
-					} else if (intify(topVertex->screen_y) == intify(midVertex->screen_y)) {
+					} else if (FCMP(topVertex->screen_y, midVertex->screen_y)) {
 						// flat on top
-						if (intify(topVertex->screen_x) > intify(midVertex->screen_x)) {
-							swapPointers((void**)&topVertex, (void**)&midVertex);
-						}
-					} else if (intify(midVertex->screen_y) == intify(bottomVertex->screen_y)) {
+						fillFlatTop(topVertex, midVertex, bottomVertex, color3f);
+					} else if (FCMP(midVertex->screen_y, bottomVertex->screen_y)) {
 						// flat on bottom
-						if (intify(bottomVertex->screen_x) > intify(midVertex->screen_x)) {
-							swapPointers((void**)&bottomVertex, (void**)&midVertex);
-						}
+					} else {
+						// split triangle into top and bottom
+						float scalar = (midVertex->getY() - topVertex->getY()) /
+								(bottomVertex->getY() - topVertex->getY());
+						RzVertex3f mid2;
+						mid2.screen_x = topVertex->screen_x +
+								(bottomVertex->screen_x - topVertex->screen_x) * scalar;
+						mid2.screen_y = midVertex->screen_y;
+						mid2.setX(topVertex->getX() +
+								(bottomVertex->getX() - topVertex->getX()) * scalar);
+						mid2.setY(midVertex->getY());
+						mid2.setZ(topVertex->getZ() +
+								(bottomVertex->getZ() - topVertex->getZ()) * scalar);
+						mid2.setOrthoX(topVertex->getOrthoX() +
+								(bottomVertex->getOrthoX() - topVertex->getOrthoX()) * scalar);
+						mid2.setOrthoY(topVertex->getOrthoY() +
+								(bottomVertex->getOrthoY() - topVertex->getOrthoY()) * scalar);
+						mid2.setOrthoZ(topVertex->getOrthoZ() +
+								(bottomVertex->getOrthoZ() - topVertex->getOrthoZ()) * scalar);
+
+						fillFlatTop(midVertex, &mid2, bottomVertex, color3f);
 					}
 
 					if (draw_triangles) {
@@ -895,168 +935,6 @@ void main_loop_function()
 					}
 					*/
 
-					// calculate the slopes
-					slopeTopMid = computeSlope2d(topVertex, midVertex);
-					slopeTopBottom = computeSlope2d(topVertex, bottomVertex);
-					slopeMidBottom = computeSlope2d(midVertex, bottomVertex);
-
-					RzVertex3f *bottomLeft, *bottomRight, *topLeft, *topRight;
-
-					float bottomLeftSlope, bottomRightSlope, topLeftSlope, topRightSlope;
-
-					if (slopeTopMid == 0) {
-							// top and mid are on same y, different x
-
-						if (slopeTopBottom == 0) {
-								// all points on same y
-							// ignore
-						} else if (isnan(slopeTopBottom) || isnan(slopeMidBottom)) {
-							// ignore
-						} else {
-							if (intify(topVertex->screen_x) < intify(midVertex->screen_x)) {
-								topLeft = topVertex;
-								topRight = midVertex;
-								topLeftSlope = slopeTopBottom;
-								topRightSlope = slopeMidBottom;
-							} else {
-								topLeft = midVertex;
-								topRight = topVertex;
-								topLeftSlope = slopeMidBottom;
-								topRightSlope = slopeTopBottom;
-							}
-
-							fillFlatTop(topVertex, midVertex, bottomVertex, topLeft, topRight,
-									topLeftSlope, topRightSlope, color3f);
-						}
-					} else if (isnan(slopeTopMid)) {
-							// top and mid are the same point
-						// ignore
-					} else if (!isfinite(slopeTopMid)) {
-							// top and mid are the same horizontal
-
-						if (isnan(slopeMidBottom)) {
-							// ignore
-						} else if (!isfinite(slopeMidBottom)) {
-							// ignore
-						} else {
-							if (intify(bottomVertex->screen_x) > intify(midVertex->screen_x)) {
-								bottomLeft = midVertex;
-								bottomLeftSlope = slopeTopMid;
-								bottomRight = bottomVertex;
-								bottomRightSlope = slopeTopBottom;
-
-							} else {
-								bottomRight = midVertex;
-								bottomLeft = bottomVertex;
-								bottomRightSlope = slopeTopMid;
-								bottomLeftSlope = slopeTopBottom;
-							}
-
-							fillFlatBottom(topVertex, midVertex, bottomVertex, bottomLeft, bottomRight,
-									bottomLeftSlope, bottomRightSlope, color3f);
-
-							if (slopeMidBottom == 0) {
-								// ignore drawing flat top triangle
-							} else {
-								if (intify(bottomVertex->screen_x) > intify(midVertex->screen_x)) {
-									topLeft = midVertex;
-									topLeftSlope = slopeMidBottom;
-									topRight = topVertex;
-									topRightSlope = slopeTopBottom;
-
-								} else {
-									topRight = midVertex;
-									topLeft = topVertex;
-									topRightSlope = slopeMidBottom;
-									topLeftSlope = slopeTopBottom;
-								}
-
-								fillFlatTop(topVertex, midVertex, bottomVertex, topLeft, topRight,
-										topLeftSlope, topRightSlope, color3f);
-							}
-						}
-					} else {
-						// mid is below top but not horizontal or vertical to it
-						if (isnan(slopeMidBottom)) {
-							// ignore
-						} else if (slopeMidBottom == 0) {
-							// just fill the flat bottom
-							if (intify(bottomVertex->screen_x) > intify(midVertex->screen_x)) {
-								bottomLeft = midVertex;
-								bottomLeftSlope = slopeTopMid;
-								bottomRight = bottomVertex;
-								bottomRightSlope = slopeTopBottom;
-
-							} else {
-								bottomRight = midVertex;
-								bottomLeft = bottomVertex;
-								bottomRightSlope = slopeTopMid;
-								bottomLeftSlope = slopeTopBottom;
-							}
-
-							fillFlatBottom(topVertex, midVertex, bottomVertex, bottomLeft, bottomRight,
-									bottomLeftSlope, bottomRightSlope, color3f);
-						} else {
-							// figure out which point goes left and which goes right from top
-
-							deltaTopMid = 1.0 / slopeTopMid;
-							deltaTopBottom = 1.0 / slopeTopBottom;
-
-//							bool display = false;
-//							if ((numScanLines + 1) == maxScanLines && lastNumScanLines != numScanLines) {
-//								ss.clear();
-//								display = true;
-//								ss << "deltaTopMid: " << deltaTopMid << " deltaTopBottom: " << deltaTopBottom;
-//								ss << " top: " << intify(topVertex->screen_x) << ", " << intify(topVertex->screen_y);
-//								ss << " mid: " << intify(midVertex->screen_x) << ", " << intify(midVertex->screen_y);
-//								ss << " bottom: " << intify(bottomVertex->screen_x) << ", " << intify(bottomVertex->screen_y);
-//								ss << endl;
-//								Debugger::getInstance().print(ss.str());
-//								lastNumScanLines = numScanLines;
-//							}
-
-							if (deltaTopMid < deltaTopBottom) {
-//								if (display) {
-//									ss.clear();
-//									ss << "deltaTopMid < deltaTopBottom" << endl;
-//									Debugger::getInstance().print(ss.str());
-//								}
-								// top to mid is left
-								topLeft = midVertex;
-								topRight = topVertex;
-								topLeftSlope = slopeMidBottom;
-								topRightSlope = slopeTopBottom;
-
-								bottomLeft = midVertex;
-								bottomRight = bottomVertex;
-								bottomLeftSlope = slopeTopMid;
-								bottomRightSlope = slopeTopBottom;
-
-							} else {
-								topLeft = topVertex;
-								topLeftSlope = slopeTopBottom;
-								topRight = midVertex;
-								topRightSlope = slopeMidBottom;
-
-								bottomLeft = bottomVertex;
-								bottomRight = midVertex;
-								bottomLeftSlope = slopeTopBottom;
-								bottomRightSlope = slopeTopMid;
-							}
-//							if (display) {
-//								ss.clear();
-//								ss << "isfinite(bottomRightSlope): " << isfinite(bottomRightSlope);
-//								ss << " ";
-//								ss << "isfinite(bottomLeftSlope): " << isfinite(bottomLeftSlope);
-//								ss << endl;
-//							}
-
-							fillFlatTop(topVertex, midVertex, bottomVertex, topLeft, topRight,
-									topLeftSlope, topRightSlope, color3f);
-							fillFlatBottom(topVertex, midVertex, bottomVertex, bottomLeft, bottomRight,
-									bottomLeftSlope, bottomRightSlope, color3f);
-						}
-					}
 				}
 			}
 		}
@@ -1079,8 +957,13 @@ void main_loop_function()
 
 		SDL_GL_SwapBuffers();
 		// Check keypresses
+		if (key[SDLK_t]) {
+			--maxPointPlots;
+		}
+		if (key[SDLK_t]) {
+			++maxPointPlots;
+		}
 		if(key[SDLK_RIGHT]) {
-			//++maxPointPlots;
 			//++maxScanLines;
 			//angle-=0.5;
 
@@ -1101,7 +984,6 @@ void main_loop_function()
 			VECTOR3D_COPY(&camera_position, &result_3d);
 		}
 		if(key[SDLK_LEFT]) {
-			//--maxPointPlots;
 			//--maxScanLines;
 			//angle+=0.5;
 			//rotation += 0.05;
