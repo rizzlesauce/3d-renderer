@@ -112,7 +112,7 @@ void swapPointers(void **v1, void **v2) {
 }
 
 int round1f(float f) {
-	return floor(0.5 + f);
+	return (0.5 + f);
 }
 
 int ceil1f(float f) {
@@ -253,9 +253,9 @@ void drawPoint2f(float x, float y, float z, RzColor3f *color) {
 	drawPoint2i(intify(x), intify(y), z, color);
 }
 
-void fillScanLines(int yPos, int yEnd,
-		float x_left, float left_dx,
-		float x_right, float right_dx,
+void fillScanLines(int yStart, int yEnd,
+		float x_left_start, float left_dx,
+		float x_right_start, float right_dx,
 		float cam_x_left, float left_dcam_x,
 		float cam_x_right, float right_dcam_x,
 		float cam_y_left, float left_dcam_y,
@@ -271,19 +271,24 @@ void fillScanLines(int yPos, int yEnd,
 		RzColor3f *color3f
 		) {
 
-	int xMin, xMax, xPos;
+	int xMin, xMax, xPos, yPos;
 	float line_width;
+	float x_left, x_right;
 	float cam_x_value, cam_y_value, cam_z_value,
 			norm_x_value, norm_y_value, norm_z_value;
 	float horizontal_dcam_x, horizontal_dcam_y, horizontal_dcam_z,
 			horizontal_dnorm_x, horizontal_dnorm_y, horizontal_dnorm_z;
 	VECTOR3D surface_normal;
 
+	x_left = x_left_start;
+	x_right = x_right_start;
+	yPos = yStart;
 	while (yPos < yEnd) {
 		// fill in the line
 
 		xMin = intify(x_left);
 		xMax = intify(x_right);
+		//xMax = floor(x_right);
 
 		if (xMin < xMax) {
 			if (numScanLines >= maxScanLines) {
@@ -303,7 +308,9 @@ void fillScanLines(int yPos, int yEnd,
 				++numScanLines;
 			}
 		}
-		line_width = x_right - x_left;
+
+		//line_width = x_right - x_left;
+		line_width = xMax - xMin;
 
 		horizontal_dcam_x = (cam_x_right - cam_x_left) / line_width;
 		cam_x_value = cam_x_left;
@@ -322,6 +329,33 @@ void fillScanLines(int yPos, int yEnd,
 
 		horizontal_dnorm_z = (norm_z_right - norm_z_left) / line_width;
 		norm_z_value = norm_z_left;
+
+		if (right_dx > 0) {
+				// right moves right
+			if ((float)xMax > x_right_start + right_dx * (float)(yPos - yStart)) {
+				xMax = x_right_start + right_dx * (float)(yPos - yStart);
+				//return;
+			}
+		} else {
+				// right moves left
+			if ((float)xMax < x_right_start + right_dx * (float)(yPos - yStart)) {
+				xMax = x_right_start + right_dx * (float)(yPos - yStart);
+				//return;
+			}
+		}
+		if (left_dx > 0) {
+				// left moves right
+			if ((float)xMin > x_left_start + left_dx * (float)(yPos - yStart)) {
+				xMin = x_left_start + left_dx * (float)(yPos - yStart);
+				//return;
+			}
+		} else {
+				// left moves left
+			if ((float)xMin < x_left_start + left_dx * (float)(yPos - yStart)) {
+				xMin = x_left_start + left_dx * (float)(yPos - yStart);
+				//return;
+			}
+		}
 
 		xPos = xMin;
 		while (xPos < xMax) {
@@ -376,51 +410,66 @@ void fillFlatTop(RzVertex3f *v1, RzVertex3f *v2, RzVertex3f *bottom, RzColor3f *
 		right = v1;
 	}
 
-	float height = bottom->screen_y - left->screen_y;
+	int yPos = intify(left->screen_y);
+	int yEnd = intify(bottom->screen_y);
+
+	float height = yEnd - yPos;
 
 	/*
 	if (height < 1.0f) {
 		return;
 	}
 	*/
-	float left_dx = (bottom->screen_x - left->screen_x) / height;
-	float right_dx = (bottom->screen_x - right->screen_x) / height;
+	float left_dx = (intify(bottom->screen_x) - intify(left->screen_x)) / height;
+	float right_dx = (intify(bottom->screen_x) - intify(right->screen_x)) / height;
 
-	int yPos = intify(left->screen_y);
-	int yEnd = intify(bottom->screen_y);
-	float y_bump = yPos - left->screen_y;
-	float x_left = left->screen_x + left_dx * y_bump;
-	float x_right = right->screen_x + right_dx * y_bump;
+	//float y_bump = yPos - left->screen_y;
+	//float x_left = left->screen_x + left_dx * y_bump;
+	//float x_right = right->screen_x + right_dx * y_bump;
+	float x_left = intify(left->screen_x);
+	float x_right = intify(right->screen_x);
 
 	float left_dcam_x = (bottom->getX() - left->getX()) / height;
 	float right_dcam_x = (bottom->getX() - right->getX()) / height;
-	float cam_x_left = left->getX() + left_dcam_x * y_bump;
-	float cam_x_right = right->getX() + right_dcam_x * y_bump;
+	//float cam_x_left = left->getX() + left_dcam_x * y_bump;
+	//float cam_x_right = right->getX() + right_dcam_x * y_bump;
+	float cam_x_left = left->getX();
+	float cam_x_right = right->getX();
 
 	float left_dcam_y = (bottom->getY() - left->getY()) / height;
 	float right_dcam_y = (bottom->getY() - right->getY()) / height;
-	float cam_y_left = left->getY() + left_dcam_y * y_bump;
-	float cam_y_right = right->getY() + right_dcam_y * y_bump;
+	//float cam_y_left = left->getY() + left_dcam_y * y_bump;
+	//float cam_y_right = right->getY() + right_dcam_y * y_bump;
+	float cam_y_left = left->getY();
+	float cam_y_right = right->getY();
 
 	float left_dcam_z = (bottom->getZ() - left->getZ()) / height;
 	float right_dcam_z = (bottom->getZ() - right->getZ()) / height;
-	float cam_z_left = left->getZ() + left_dcam_z * y_bump;
-	float cam_z_right = right->getZ() + right_dcam_z * y_bump;
+	//float cam_z_left = left->getZ() + left_dcam_z * y_bump;
+	//float cam_z_right = right->getZ() + right_dcam_z * y_bump;
+	float cam_z_left = left->getZ();
+	float cam_z_right = right->getZ();
 
 	float left_dnorm_x = (bottom->getOrthoX() - left->getOrthoX()) / height;
 	float right_dnorm_x = (bottom->getOrthoX() - right->getOrthoX()) / height;
-	float norm_x_left = left->getOrthoX() + left_dnorm_x * y_bump;
-	float norm_x_right = right->getOrthoX() + right_dnorm_x * y_bump;
+	//float norm_x_left = left->getOrthoX() + left_dnorm_x * y_bump;
+	//float norm_x_right = right->getOrthoX() + right_dnorm_x * y_bump;
+	float norm_x_left = left->getOrthoX();
+	float norm_x_right = right->getOrthoX();
 
 	float left_dnorm_y = (bottom->getOrthoY() - left->getOrthoY()) / height;
 	float right_dnorm_y = (bottom->getOrthoY() - right->getOrthoY()) / height;
-	float norm_y_left = left->getOrthoY() + left_dnorm_y * y_bump;
-	float norm_y_right = right->getOrthoY() + right_dnorm_y * y_bump;
+	//float norm_y_left = left->getOrthoY() + left_dnorm_y * y_bump;
+	//float norm_y_right = right->getOrthoY() + right_dnorm_y * y_bump;
+	float norm_y_left = left->getOrthoY();
+	float norm_y_right = right->getOrthoY();
 
 	float left_dnorm_z = (bottom->getOrthoZ() - left->getOrthoZ()) / height;
 	float right_dnorm_z = (bottom->getOrthoZ() - right->getOrthoZ()) / height;
-	float norm_z_left = left->getOrthoZ() + left_dnorm_z * y_bump;
-	float norm_z_right = right->getOrthoZ() + right_dnorm_z * y_bump;
+	//float norm_z_left = left->getOrthoZ() + left_dnorm_z * y_bump;
+	//float norm_z_right = right->getOrthoZ() + right_dnorm_z * y_bump;
+	float norm_z_left = left->getOrthoZ();
+	float norm_z_right = right->getOrthoZ();
 
 	fillScanLines(yPos, yEnd,
 			x_left, left_dx,
@@ -451,7 +500,10 @@ void fillFlatBottom(RzVertex3f *v1, RzVertex3f *v2, RzVertex3f *top, RzColor3f *
 		right = v1;
 	}
 
-	float height = left->screen_y - top->screen_y;
+	int yPos = intify(top->screen_y);
+	int yEnd = intify(left->screen_y);
+
+	float height = yEnd - yPos;
 
 	/*
 	if (height < 1.0f) {
@@ -459,45 +511,56 @@ void fillFlatBottom(RzVertex3f *v1, RzVertex3f *v2, RzVertex3f *top, RzColor3f *
 	}
 	*/
 
-	int yPos = intify(top->screen_y);
-	int yEnd = intify(left->screen_y);
+	float left_dx = (float)(intify(left->screen_x) - intify(top->screen_x)) / height;
+	float right_dx = (float)(intify(right->screen_x) - intify(top->screen_x)) / height;
 
-	float left_dx = (left->screen_x - top->screen_x) / height;
-	float right_dx = (right->screen_x - top->screen_x) / height;
-
-	float y_bump = yPos - top->screen_y;
-	float x_left = top->screen_x + left_dx * y_bump;
-	float x_right = top->screen_x + right_dx * y_bump;
+	//float y_bump = yPos - top->screen_y;
+	//float x_left = top->screen_x + left_dx * y_bump;
+	//float x_right = top->screen_x + right_dx * y_bump;
+	float x_left = intify(top->screen_x);
+	float x_right = intify(top->screen_x);
 
 	float left_dcam_x = (left->getX() - top->getX()) / height;
 	float right_dcam_x = (right->getX() - top->getX()) / height;
-	float cam_x_left = top->getX() + left_dcam_x * y_bump;
-	float cam_x_right = top->getX() + right_dcam_x * y_bump;
+	//float cam_x_left = top->getX() + left_dcam_x * y_bump;
+	//float cam_x_right = top->getX() + right_dcam_x * y_bump;
+	float cam_x_left = top->getX();
+	float cam_x_right = top->getX();
 
 	float left_dcam_y = (left->getY() - top->getY()) / height;
 	float right_dcam_y = (right->getY() - top->getY()) / height;
-	float cam_y_left = top->getY() + left_dcam_y * y_bump;
-	float cam_y_right = top->getY() + right_dcam_y * y_bump;
+	//float cam_y_left = top->getY() + left_dcam_y * y_bump;
+	//float cam_y_right = top->getY() + right_dcam_y * y_bump;
+	float cam_y_left = top->getY();
+	float cam_y_right = top->getY();
 
 	float left_dcam_z = (left->getZ() - top->getZ()) / height;
 	float right_dcam_z = (right->getZ() - top->getZ()) / height;
-	float cam_z_left = top->getZ() + left_dcam_z * y_bump;
-	float cam_z_right = top->getZ() + right_dcam_z * y_bump;
+	//float cam_z_left = top->getZ() + left_dcam_z * y_bump;
+	//float cam_z_right = top->getZ() + right_dcam_z * y_bump;
+	float cam_z_left = top->getZ();
+	float cam_z_right = top->getZ();
 
 	float left_dnorm_x = (left->getOrthoX() - top->getOrthoX()) / height;
 	float right_dnorm_x = (right->getOrthoX() - top->getOrthoX()) / height;
-	float norm_x_left = top->getOrthoX() + left_dnorm_x * y_bump;
-	float norm_x_right = top->getOrthoX() + right_dnorm_x * y_bump;
+	//float norm_x_left = top->getOrthoX() + left_dnorm_x * y_bump;
+	//float norm_x_right = top->getOrthoX() + right_dnorm_x * y_bump;
+	float norm_x_left = top->getOrthoX();
+	float norm_x_right = top->getOrthoX();
 
 	float left_dnorm_y = (left->getOrthoY() - top->getOrthoY()) / height;
 	float right_dnorm_y = (right->getOrthoY() - top->getOrthoY()) / height;
-	float norm_y_left = top->getOrthoY() + left_dnorm_y * y_bump;
-	float norm_y_right = top->getOrthoY() + right_dnorm_y * y_bump;
+	//float norm_y_left = top->getOrthoY() + left_dnorm_y * y_bump;
+	//float norm_y_right = top->getOrthoY() + right_dnorm_y * y_bump;
+	float norm_y_left = top->getOrthoY();
+	float norm_y_right = top->getOrthoY();
 
 	float left_dnorm_z = (left->getOrthoZ() - top->getOrthoZ()) / height;
 	float right_dnorm_z = (right->getOrthoZ() - top->getOrthoZ()) / height;
-	float norm_z_left = top->getOrthoZ() + left_dnorm_z * y_bump;
-	float norm_z_right = top->getOrthoZ() + right_dnorm_z * y_bump;
+	//float norm_z_left = top->getOrthoZ() + left_dnorm_z * y_bump;
+	//float norm_z_right = top->getOrthoZ() + right_dnorm_z * y_bump;
+	float norm_z_left = top->getOrthoZ();
+	float norm_z_right = top->getOrthoZ();
 
 	fillScanLines(yPos, yEnd,
 			x_left, left_dx,
@@ -920,18 +983,34 @@ void main_loop_function()
 						}
 					}
 
-					// sort vertices with same y
-					if (FCMP(topVertex->screen_y, bottomVertex->screen_y)) {
-					//if (intify(topVertex->screen_y) == intify(bottomVertex->screen_y)) {
-						// perfectly flat line
-						// sort by x value
-					} else if (FCMP(topVertex->screen_y, midVertex->screen_y)) {
-					//} else if (intify(topVertex->screen_y) == intify(midVertex->screen_y)) {
+					// some trivial clipping
+					if (intify(topVertex->screen_y) >= WINDOW_HEIGHT ||
+							intify(bottomVertex->screen_y) < 0) {
+						continue;
+					}
+
+					// check for degenerate triangle
+					if (
+							(
+								intify(topVertex->screen_x) == intify(midVertex->screen_x) &&
+								intify(midVertex->screen_x) == intify(bottomVertex->screen_x)
+							)
+							||
+							(
+								intify(topVertex->screen_y) == intify(midVertex->screen_y) &&
+								intify(midVertex->screen_y) == intify(bottomVertex->screen_y)
+							)
+						) {
+						continue;
+					}
+
+					//if (FCMP(topVertex->screen_y, midVertex->screen_y)) {
+					if (intify(topVertex->screen_y) == intify(midVertex->screen_y)) {
 
 						// flat on top
 						fillFlatTop(topVertex, midVertex, bottomVertex, color3f);
-					} else if (FCMP(midVertex->screen_y, bottomVertex->screen_y)) {
-					//} else if (intify(midVertex->screen_y) == intify(bottomVertex->screen_y)) {
+					//} else if (FCMP(midVertex->screen_y, bottomVertex->screen_y)) {
+					} else if (intify(midVertex->screen_y) == intify(bottomVertex->screen_y)) {
 						// flat on bottom
 						fillFlatBottom(midVertex, bottomVertex, topVertex, color3f);
 					} else {
