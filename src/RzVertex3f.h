@@ -8,6 +8,8 @@
 #ifndef RZVERTEX3F_H_
 #define RZVERTEX3F_H_
 
+#include <string>
+
 class RzVertex3f {
 public:
 	RzVertex3f();
@@ -32,6 +34,7 @@ public:
 
 
 	void deepCopy(const RzVertex3f&);
+	std::string toString() const;
 
 	float coordinates[6];
 	float screen_x, screen_y;

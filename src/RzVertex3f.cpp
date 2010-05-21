@@ -5,7 +5,10 @@
  *      Author: ross
  */
 
+#include <string>
+#include <sstream>
 #include "RzVertex3f.h"
+using namespace std;
 
 RzVertex3f::RzVertex3f() : screen_x(0), screen_y(0) {
 	// TODO Auto-generated constructor stub
@@ -83,4 +86,18 @@ void RzVertex3f::setOrthoY(float p_y) {
 
 void RzVertex3f::setOrthoZ(float p_z) {
 	coordinates[5] = p_z;
+}
+
+string RzVertex3f::toString() const {
+	stringstream ss;
+
+	ss << "(";
+	ss << "(" << getX() << ", " << getY() << ", " << getZ() << ")";
+	ss << ", ";
+	ss << "(" << getOrthoX() << ", " << getOrthoY() << ", " << getOrthoZ() << ")";
+	ss << ", ";
+	ss << "(" << screen_x << ", " << screen_y << ")";
+	ss << ")";
+
+	return ss.str();
 }
