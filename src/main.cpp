@@ -296,51 +296,54 @@ void fillFlatTop(RzVertex3f *top, RzVertex3f *mid, RzVertex3f *bottom, RzVertex3
 
 	int yPos = intify(bottom->screen_y);
 	int yEnd = intify(mid->screen_y);
-	float height = yEnd - yPos;
 	int xPos;
 	float xLeft, xRight;
 	int xMin, xMax;
 	float cam_x, cam_y, cam_z;
 
+	float leftHeight, rightHeight;
+	leftHeight = intify(left->screen_y) - intify(bottom->screen_y);
+	rightHeight = intify(right->screen_y) - intify(bottom->screen_y);
+
 	VECTOR3D surface_normal;
 
-	float left_dcam_x = (bottom->getX() - left->getX()) / height;
-	float right_dcam_x = (bottom->getX() - right->getX()) / height;
+	float left_dcam_x = (bottom->getX() - left->getX()) / leftHeight;
+	float right_dcam_x = (bottom->getX() - right->getX()) / rightHeight;
 	//float cam_x_left = left->getX() + left_dcam_x * y_bump;
 	//float cam_x_right = right->getX() + right_dcam_x * y_bump;
 	float cam_x_left = bottom->getX();
 	float cam_x_right = bottom->getX();
 
-	float left_dcam_y = (bottom->getY() - left->getY()) / height;
-	float right_dcam_y = (bottom->getY() - right->getY()) / height;
+	float left_dcam_y = (bottom->getY() - left->getY()) / leftHeight;
+	float right_dcam_y = (bottom->getY() - right->getY()) / rightHeight;
 	//float cam_y_left = left->getY() + left_dcam_y * y_bump;
 	//float cam_y_right = right->getY() + right_dcam_y * y_bump;
 	float cam_y_left = bottom->getY();
 	float cam_y_right = bottom->getY();
 
-	float left_dcam_z = (bottom->getZ() - left->getZ()) / height;
-	float right_dcam_z = (bottom->getZ() - right->getZ()) / height;
+	float left_dcam_z = (bottom->getZ() - left->getZ()) / leftHeight;
+	float right_dcam_z = (bottom->getZ() - right->getZ()) / rightHeight;
 	//float cam_z_left = left->getZ() + left_dcam_z * y_bump;
 	//float cam_z_right = right->getZ() + right_dcam_z * y_bump;
 	float cam_z_left = bottom->getZ();
 	float cam_z_right = bottom->getZ();
 
-	float left_dnorm_x = (bottom->getOrthoX() - left->getOrthoX()) / height;
-	float right_dnorm_x = (bottom->getOrthoX() - right->getOrthoX()) / height;
+	float left_dnorm_x = (bottom->getOrthoX() - left->getOrthoX()) / leftHeight;
+	float right_dnorm_x = (bottom->getOrthoX() - right->getOrthoX()) / rightHeight;
 	//float norm_x_left = left->getOrthoX() + left_dnorm_x * y_bump;
 	//float norm_x_right = right->getOrthoX() + right_dnorm_x * y_bump;
 	float norm_x_left = bottom->getOrthoX();
 	float norm_x_right = bottom->getOrthoX();
 
-	float left_dnorm_y = (bottom->getOrthoY() - left->getOrthoY()) / height;
-	float right_dnorm_y = (bottom->getOrthoY() - right->getOrthoY()) / height;
+	float left_dnorm_y = (bottom->getOrthoY() - left->getOrthoY()) / leftHeight;
+	float right_dnorm_y = (bottom->getOrthoY() - right->getOrthoY()) / rightHeight;
 	//float norm_y_left = left->getOrthoY() + left_dnorm_y * y_bump;
 	//float norm_y_right = right->getOrthoY() + right_dnorm_y * y_bump;
 	float norm_y_left = bottom->getOrthoY();
 	float norm_y_right = bottom->getOrthoY();
 
-	float left_dnorm_z = (bottom->getOrthoZ() - left->getOrthoZ()) / height;
-	float right_dnorm_z = (bottom->getOrthoZ() - right->getOrthoZ()) / height;
+	float left_dnorm_z = (bottom->getOrthoZ() - left->getOrthoZ()) / leftHeight;
+	float right_dnorm_z = (bottom->getOrthoZ() - right->getOrthoZ()) / rightHeight;
 	//float norm_z_left = left->getOrthoZ() + left_dnorm_z * y_bump;
 	//float norm_z_right = right->getOrthoZ() + right_dnorm_z * y_bump;
 	float norm_z_left = bottom->getOrthoZ();
@@ -482,7 +485,9 @@ void fillFlatBottom(RzVertex3f *top, RzVertex3f *mid, RzVertex3f *bottom, RzVert
 	VECTOR3D surface_normal;
 	float cam_x, cam_y, cam_z;
 
-	float height = yEnd - yPos;
+	float leftHeight, rightHeight;
+	leftHeight = intify(left->screen_y) - intify(top->screen_y);
+	rightHeight = intify(right->screen_y) - intify(top->screen_y);
 
 	/*
 	if (height < 1.0f) {
@@ -494,43 +499,43 @@ void fillFlatBottom(RzVertex3f *top, RzVertex3f *mid, RzVertex3f *bottom, RzVert
 	//float x_left = top->screen_x + left_dx * y_bump;
 	//float x_right = top->screen_x + right_dx * y_bump;
 
-	float left_dcam_x = (left->getX() - top->getX()) / height;
-	float right_dcam_x = (right->getX() - top->getX()) / height;
+	float left_dcam_x = (left->getX() - top->getX()) / leftHeight;
+	float right_dcam_x = (right->getX() - top->getX()) / rightHeight;
 	//float cam_x_left = top->getX() + left_dcam_x * y_bump;
 	//float cam_x_right = top->getX() + right_dcam_x * y_bump;
 	float cam_x_left = top->getX();
 	float cam_x_right = top->getX();
 
-	float left_dcam_y = (left->getY() - top->getY()) / height;
-	float right_dcam_y = (right->getY() - top->getY()) / height;
+	float left_dcam_y = (left->getY() - top->getY()) / leftHeight;
+	float right_dcam_y = (right->getY() - top->getY()) / rightHeight;
 	//float cam_y_left = top->getY() + left_dcam_y * y_bump;
 	//float cam_y_right = top->getY() + right_dcam_y * y_bump;
 	float cam_y_left = top->getY();
 	float cam_y_right = top->getY();
 
-	float left_dcam_z = (left->getZ() - top->getZ()) / height;
-	float right_dcam_z = (right->getZ() - top->getZ()) / height;
+	float left_dcam_z = (left->getZ() - top->getZ()) / leftHeight;
+	float right_dcam_z = (right->getZ() - top->getZ()) / rightHeight;
 	//float cam_z_left = top->getZ() + left_dcam_z * y_bump;
 	//float cam_z_right = top->getZ() + right_dcam_z * y_bump;
 	float cam_z_left = top->getZ();
 	float cam_z_right = top->getZ();
 
-	float left_dnorm_x = (left->getOrthoX() - top->getOrthoX()) / height;
-	float right_dnorm_x = (right->getOrthoX() - top->getOrthoX()) / height;
+	float left_dnorm_x = (left->getOrthoX() - top->getOrthoX()) / leftHeight;
+	float right_dnorm_x = (right->getOrthoX() - top->getOrthoX()) / rightHeight;
 	//float norm_x_left = top->getOrthoX() + left_dnorm_x * y_bump;
 	//float norm_x_right = top->getOrthoX() + right_dnorm_x * y_bump;
 	float norm_x_left = top->getOrthoX();
 	float norm_x_right = top->getOrthoX();
 
-	float left_dnorm_y = (left->getOrthoY() - top->getOrthoY()) / height;
-	float right_dnorm_y = (right->getOrthoY() - top->getOrthoY()) / height;
+	float left_dnorm_y = (left->getOrthoY() - top->getOrthoY()) / leftHeight;
+	float right_dnorm_y = (right->getOrthoY() - top->getOrthoY()) / rightHeight;
 	//float norm_y_left = top->getOrthoY() + left_dnorm_y * y_bump;
 	//float norm_y_right = top->getOrthoY() + right_dnorm_y * y_bump;
 	float norm_y_left = top->getOrthoY();
 	float norm_y_right = top->getOrthoY();
 
-	float left_dnorm_z = (left->getOrthoZ() - top->getOrthoZ()) / height;
-	float right_dnorm_z = (right->getOrthoZ() - top->getOrthoZ()) / height;
+	float left_dnorm_z = (left->getOrthoZ() - top->getOrthoZ()) / leftHeight;
+	float right_dnorm_z = (right->getOrthoZ() - top->getOrthoZ()) / rightHeight;
 	//float norm_z_left = top->getOrthoZ() + left_dnorm_z * y_bump;
 	//float norm_z_right = top->getOrthoZ() + right_dnorm_z * y_bump;
 	float norm_z_left = top->getOrthoZ();
