@@ -1056,6 +1056,24 @@ void main_loop_function()
 						}
 					}
 
+					if (topVertex->screen_y >= WINDOW_HEIGHT) {
+						continue;
+					}
+					if (bottomVertex->screen_y < 0) {
+						continue;
+					}
+					if (topVertex->screen_x < 0 &&
+							midVertex->screen_x < 0 &&
+							bottomVertex->screen_x < 0) {
+						continue;
+					}
+					if (topVertex->screen_x >= WINDOW_WIDTH &&
+							midVertex->screen_x >= WINDOW_WIDTH &&
+							bottomVertex->screen_x >= WINDOW_WIDTH) {
+						continue;
+					}
+
+
 					// sort vertices with same y
 					if (intify(topVertex->screen_y) == intify(bottomVertex->screen_y)) {
 						// perfectly flat line
