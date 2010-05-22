@@ -807,20 +807,6 @@ void main_loop_function()
 
 		// don't scale the normals
 
-		// translation
-		// translate model
-		Mat_Init_4X4(&transform_matrix,
-				1, 0, 0, translate_x,
-				0, 1, 0, translate_y,
-				0, 0, 1, translate_z,
-				0, 0, 0, 1
-				);
-
-		Mat_Mul_4X4(&transform_matrix, &model_transform_matrix, &result_4x4);
-		MAT_COPY_4X4(&result_4x4, &model_transform_matrix);
-
-		// don't translate normals
-
 		// rotation
 		// model rotation
 		cos_rot = cos(rotation);
@@ -838,6 +824,20 @@ void main_loop_function()
 		// normal rotation
 		Mat_Mul_4X4(&transform_matrix, &normal_transform_matrix, &result_4x4);
 		MAT_COPY_4X4(&result_4x4, &normal_transform_matrix);
+
+		// translation
+		// translate model
+		Mat_Init_4X4(&transform_matrix,
+				1, 0, 0, translate_x,
+				0, 1, 0, translate_y,
+				0, 0, 1, translate_z,
+				0, 0, 0, 1
+				);
+
+		Mat_Mul_4X4(&transform_matrix, &model_transform_matrix, &result_4x4);
+		MAT_COPY_4X4(&result_4x4, &model_transform_matrix);
+
+		// don't translate normals
 
 		// view transformations
 		// translate eye to origin
