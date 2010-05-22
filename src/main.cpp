@@ -112,7 +112,7 @@ void swapPointers(void **v1, void **v2) {
 }
 
 int round1f(float f) {
-	return (0.5 + f);
+	return (int)(f + 0.5);
 }
 
 int ceil1f(float f) {
@@ -121,8 +121,8 @@ int ceil1f(float f) {
 
 int intify(float f) {
 	//return floor(f);
-	//return round1f(f);
-	return ceil1f(f);
+	return round1f(f);
+	//return ceil1f(f);
 }
 
 float computeSlope2d(RzVertex3f *v1, RzVertex3f *v2) {
@@ -285,7 +285,6 @@ void fillScanLines(int yStart, int yEnd,
 	yPos = yStart;
 	while (yPos < yEnd) {
 		// fill in the line
-
 		xMin = intify(x_left);
 		xMax = intify(x_right);
 		//xMax = floor(x_right);
@@ -330,6 +329,7 @@ void fillScanLines(int yStart, int yEnd,
 		horizontal_dnorm_z = (norm_z_right - norm_z_left) / line_width;
 		norm_z_value = norm_z_left;
 
+		/*
 		if (right_dx > 0) {
 				// right moves right
 			if ((float)xMax > x_right_start + right_dx * (float)(yPos - yStart)) {
@@ -356,6 +356,7 @@ void fillScanLines(int yStart, int yEnd,
 				//return;
 			}
 		}
+		*/
 
 		xPos = xMin;
 		while (xPos < xMax) {
