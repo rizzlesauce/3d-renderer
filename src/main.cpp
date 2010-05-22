@@ -58,13 +58,11 @@ float near_z = -1.0f;
 float far_z = -5000;
 float field_of_view = (float)PI / 2.0;
 
-int numPointPlots;
-int maxPointPlots = 0;
-int numScanLines = 0;
-int maxScanLines = 1000000000;
-//int maxScanLines = 2000;
+//int numPointPlots = 0;
+//int maxPointPlots = 0;
+//int numScanLines = 0;
+//int maxScanLines = 1000000000;
 //int maxScanLines = 0;
-bool printScanLineInfo = false;
 
 RzPolygonGroupCollection *collection = NULL;
 RzPolygonGroupCollection *perspectified;
@@ -112,17 +110,13 @@ void swapPointers(void **v1, void **v2) {
 }
 
 int round1f(float f) {
-	return (0.5 + f);
-}
-
-int ceil1f(float f) {
-	return ceil(f);
+	return floor(0.5 + f);
 }
 
 int intify(float f) {
 	//return floor(f);
-	//return round1f(f);
-	return ceil1f(f);
+	return round1f(f);
+	//return ceil(f);
 }
 
 float computeSlope2d(RzVertex3f *v1, RzVertex3f *v2) {
@@ -167,12 +161,14 @@ bool compareVertexYs(RzVertex3f v1, RzVertex3f v2) {
 
 void drawPoint2iForReal(int x, int y, float z, RzColor3f *color) {
 
-//	if (numPointPlots >= maxPointPlots) {
-//		// maxed out
-//		return;
-//	} else {
-//		++numPointPlots;
-//	}
+	/*
+	if (numPointPlots >= maxPointPlots) {
+		// maxed out
+		return;
+	} else {
+		++numPointPlots;
+	}
+	*/
 
 	zBufferSet[x][y] = true;
 	zBuffer[x][y] = z;
@@ -200,6 +196,7 @@ void drawPoint2iWithShading(int screen_x, int screen_y, float camera_space_x, fl
 		float camera_space_z, VECTOR3D_PTR surface_normal, RzColor3f *surface_color) {
 
 	RzColor3f color;
+
 	VECTOR3D light_vector = { relative_light_pos.x - camera_space_x,
 			relative_light_pos.y - camera_space_y,
 			relative_light_pos.z - camera_space_z
@@ -253,63 +250,140 @@ void drawPoint2f(float x, float y, float z, RzColor3f *color) {
 	drawPoint2i(intify(x), intify(y), z, color);
 }
 
-void fillScanLines(int yStart, int yEnd,
-		float x_left_start, float left_dx,
-		float x_right_start, float right_dx,
-		float cam_x_left, float left_dcam_x,
-		float cam_x_right, float right_dcam_x,
-		float cam_y_left, float left_dcam_y,
-		float cam_y_right, float right_dcam_y,
-		float cam_z_left, float left_dcam_z,
-		float cam_z_right, float right_dcam_z,
-		float norm_x_left, float left_dnorm_x,
-		float norm_x_right, float right_dnorm_x,
-		float norm_y_left, float left_dnorm_y,
-		float norm_y_right, float right_dnorm_y,
-		float norm_z_left, float left_dnorm_z,
-		float norm_z_right, float right_dnorm_z,
-		RzColor3f *color3f
-		) {
+float interpolateComponent(float c1, float c2, float c3, float y1, float ys, float y2, float y3, float xa, float xs, float xb) {
+	float ca, cb, cs;
 
-	int xMin, xMax, xPos, yPos;
+	y1 = (float)intify(y1);
+	ys = (float)intify(ys);
+	y2 = (float)intify(y2);
+	y3 = (float)intify(y3);
+	xa = (float)intify(xa);
+	xs = (float)intify(xs);
+	xb = (float)intify(xb);
+
+	ca = c1 - (c1 - c2) * (y1 - ys) / (y1 - y2);
+	cb = c1 - (c1 - c3) * (y1 - ys) / (y1 - y3);
+	cs = cb - (cb - ca) * (xb - xs) / (xb - xa);
+
+	return cs;
+}
+
+void interpolateNormal(RzVertex3f *v1, float xa, float xs, float ys, float xb, RzVertex3f *v2, RzVertex3f *v3,
+		VECTOR3D_PTR normal) {
+	int ortho_index;
+	for (int i = 0; i < 3; ++i) {
+		ortho_index = i + 3;
+		normal->M[i] = interpolateComponent(
+				v1->coordinates[ortho_index],
+				v2->coordinates[ortho_index],
+				v3->coordinates[ortho_index],
+				(float)v1->screen_y, ys, (float)v2->screen_y, (float)v3->screen_y,
+				xa, xs, xb);
+	}
+}
+
+void fillFlatTop(RzVertex3f *top, RzVertex3f *mid, RzVertex3f *bottom, RzVertex3f *left, RzVertex3f *right,
+		float leftSlope, float rightSlope, RzColor3f *color3f) {
+
+	float bLeft, bRight;
+
+	if (isfinite(leftSlope)) {
+		bLeft = (float)intify(left->screen_y) - leftSlope * (float)intify(left->screen_x);
+	}
+	if (isfinite(rightSlope)) {
+		bRight = (float)intify(right->screen_y) - rightSlope * (float)intify(right->screen_x);
+	}
+
+	int yPos = intify(bottom->screen_y);
+	int yEnd = intify(mid->screen_y);
+	float height = yEnd - yPos;
+	int xPos;
+	float xLeft, xRight;
+	int xMin, xMax;
+	float cam_x, cam_y, cam_z;
+
+	VECTOR3D surface_normal;
+
+	float left_dcam_x = (bottom->getX() - left->getX()) / height;
+	float right_dcam_x = (bottom->getX() - right->getX()) / height;
+	//float cam_x_left = left->getX() + left_dcam_x * y_bump;
+	//float cam_x_right = right->getX() + right_dcam_x * y_bump;
+	float cam_x_left = bottom->getX();
+	float cam_x_right = bottom->getX();
+
+	float left_dcam_y = (bottom->getY() - left->getY()) / height;
+	float right_dcam_y = (bottom->getY() - right->getY()) / height;
+	//float cam_y_left = left->getY() + left_dcam_y * y_bump;
+	//float cam_y_right = right->getY() + right_dcam_y * y_bump;
+	float cam_y_left = bottom->getY();
+	float cam_y_right = bottom->getY();
+
+	float left_dcam_z = (bottom->getZ() - left->getZ()) / height;
+	float right_dcam_z = (bottom->getZ() - right->getZ()) / height;
+	//float cam_z_left = left->getZ() + left_dcam_z * y_bump;
+	//float cam_z_right = right->getZ() + right_dcam_z * y_bump;
+	float cam_z_left = bottom->getZ();
+	float cam_z_right = bottom->getZ();
+
+	float left_dnorm_x = (bottom->getOrthoX() - left->getOrthoX()) / height;
+	float right_dnorm_x = (bottom->getOrthoX() - right->getOrthoX()) / height;
+	//float norm_x_left = left->getOrthoX() + left_dnorm_x * y_bump;
+	//float norm_x_right = right->getOrthoX() + right_dnorm_x * y_bump;
+	float norm_x_left = bottom->getOrthoX();
+	float norm_x_right = bottom->getOrthoX();
+
+	float left_dnorm_y = (bottom->getOrthoY() - left->getOrthoY()) / height;
+	float right_dnorm_y = (bottom->getOrthoY() - right->getOrthoY()) / height;
+	//float norm_y_left = left->getOrthoY() + left_dnorm_y * y_bump;
+	//float norm_y_right = right->getOrthoY() + right_dnorm_y * y_bump;
+	float norm_y_left = bottom->getOrthoY();
+	float norm_y_right = bottom->getOrthoY();
+
+	float left_dnorm_z = (bottom->getOrthoZ() - left->getOrthoZ()) / height;
+	float right_dnorm_z = (bottom->getOrthoZ() - right->getOrthoZ()) / height;
+	//float norm_z_left = left->getOrthoZ() + left_dnorm_z * y_bump;
+	//float norm_z_right = right->getOrthoZ() + right_dnorm_z * y_bump;
+	float norm_z_left = bottom->getOrthoZ();
+	float norm_z_right = bottom->getOrthoZ();
+
 	float line_width;
-	float x_left, x_right;
 	float cam_x_value, cam_y_value, cam_z_value,
 			norm_x_value, norm_y_value, norm_z_value;
 	float horizontal_dcam_x, horizontal_dcam_y, horizontal_dcam_z,
 			horizontal_dnorm_x, horizontal_dnorm_y, horizontal_dnorm_z;
-	VECTOR3D surface_normal;
 
-	x_left = x_left_start;
-	x_right = x_right_start;
-	yPos = yStart;
-	while (yPos < yEnd) {
+	//xMin = xMaxLeft = xRight = (float)intify(bottom->screen_x);
+
+	//RzColor3f color;
+	//color.setRed(1.0);
+	//drawPoint2i(intify(bottom->screen_x), intify(bottom->screen_y), bottom->getZ(), &color);
+
+	while (yPos > yEnd) {
 		// fill in the line
 
-		xMin = intify(x_left);
-		xMax = intify(x_right);
-		//xMax = floor(x_right);
-
-		if (xMin < xMax) {
-			if (numScanLines >= maxScanLines) {
-				if (numScanLines == maxScanLines) {
-					if (printScanLineInfo) {
-						stringstream ss;
-						ss << "yPos: " << yPos;
-						ss << ", ";
-						ss << "yEnd: " << yEnd;
-						ss << endl;
-						Debugger::getInstance().print(ss.str());
-						printScanLineInfo = false;
-					}
-				}
-				return;
-			} else {
-				++numScanLines;
-			}
+		if (isfinite(leftSlope)) {
+			xLeft = ((float)yPos - bLeft) / leftSlope;
+		} else {
+			xLeft = (float)intify(left->screen_x);
 		}
 
-		//line_width = x_right - x_left;
+		if (isfinite(rightSlope)) {
+			xRight = ((float)yPos - bRight) / rightSlope;
+		} else {
+			xRight = (float)intify(right->screen_x);
+		}
+
+		xMin = intify(xLeft);
+		xMax = intify(xRight);
+
+//		if (xMin < xMax) {
+//			if (numScanLines >= maxScanLines) {
+//				return;
+//			} else {
+//				++numScanLines;
+//			}
+//		}
+
 		line_width = xMax - xMin;
 
 		horizontal_dcam_x = (cam_x_right - cam_x_left) / line_width;
@@ -330,35 +404,27 @@ void fillScanLines(int yStart, int yEnd,
 		horizontal_dnorm_z = (norm_z_right - norm_z_left) / line_width;
 		norm_z_value = norm_z_left;
 
-		if (right_dx > 0) {
-				// right moves right
-			if ((float)xMax > x_right_start + right_dx * (float)(yPos - yStart)) {
-				xMax = x_right_start + right_dx * (float)(yPos - yStart);
-				//return;
-			}
-		} else {
-				// right moves left
-			if ((float)xMax < x_right_start + right_dx * (float)(yPos - yStart)) {
-				xMax = x_right_start + right_dx * (float)(yPos - yStart);
-				//return;
-			}
-		}
-		if (left_dx > 0) {
-				// left moves right
-			if ((float)xMin > x_left_start + left_dx * (float)(yPos - yStart)) {
-				xMin = x_left_start + left_dx * (float)(yPos - yStart);
-				//return;
-			}
-		} else {
-				// left moves left
-			if ((float)xMin < x_left_start + left_dx * (float)(yPos - yStart)) {
-				xMin = x_left_start + left_dx * (float)(yPos - yStart);
-				//return;
-			}
-		}
-
 		xPos = xMin;
 		while (xPos < xMax) {
+			/*
+			interpolateNormal(bottom, xLeft, (float)xPos, (float)yPos, xRight, mid, top, &surface_normal);
+			cam_x = interpolateComponent(bottom->getX(), mid->getX(), top->getX(),
+					bottom->screen_y, (float)yPos, mid->screen_y, top->screen_y,
+					xLeft, (float)xPos, xRight);
+			cam_y = interpolateComponent(bottom->getY(), mid->getY(), top->getY(),
+					bottom->screen_y, (float)yPos, mid->screen_y, top->screen_y,
+					xLeft, (float)xPos, xRight);
+			cam_z = interpolateComponent(bottom->getZ(), mid->getZ(), top->getZ(),
+					bottom->screen_y, (float)yPos, mid->screen_y, top->screen_y,
+					xLeft, (float)xPos, xRight);
+
+			drawPoint2iWithShading(xPos, yPos,
+					cam_x, cam_y, cam_z,
+					&surface_normal,
+					color3f
+					);
+					*/
+
 			VECTOR3D_INITXYZ(&surface_normal, norm_x_value, norm_y_value, norm_z_value);
 
 			drawPoint2iWithShading(xPos, yPos,
@@ -366,7 +432,6 @@ void fillScanLines(int yStart, int yEnd,
 					&surface_normal,
 					color3f
 					);
-			//drawPoint2iForReal(xPos, yPos, -1.0f, color3f);
 
 			++xPos;
 
@@ -379,10 +444,7 @@ void fillScanLines(int yStart, int yEnd,
 			norm_z_value += horizontal_dnorm_z;
 		}
 
-		++yPos;
-
-		x_left += left_dx;
-		x_right += right_dx;
+		--yPos;
 
 		cam_x_left += left_dcam_x;
 		cam_x_right += right_dcam_x;
@@ -400,108 +462,25 @@ void fillScanLines(int yStart, int yEnd,
 	}
 }
 
-void fillFlatTop(RzVertex3f *v1, RzVertex3f *v2, RzVertex3f *bottom, RzColor3f *color3f) {
-	RzVertex3f *left, *right;
-	if (v1->screen_x < v2->screen_x) {
-		left = v1;
-		right = v2;
-	} else {
-		left = v2;
-		right = v1;
+void fillFlatBottom(RzVertex3f *top, RzVertex3f *mid, RzVertex3f *bottom, RzVertex3f *left, RzVertex3f *right,
+		float leftSlope, float rightSlope, RzColor3f *color3f) {
+
+	float bLeft, bRight;
+
+	if (isfinite(leftSlope)) {
+		bLeft = (float)intify(left->screen_y) - leftSlope * (float)intify(left->screen_x);
 	}
-
-	int yPos = intify(left->screen_y);
-	int yEnd = intify(bottom->screen_y);
-
-	float height = yEnd - yPos;
-
-	/*
-	if (height < 1.0f) {
-		return;
-	}
-	*/
-	float left_dx = (intify(bottom->screen_x) - intify(left->screen_x)) / height;
-	float right_dx = (intify(bottom->screen_x) - intify(right->screen_x)) / height;
-
-	//float y_bump = yPos - left->screen_y;
-	//float x_left = left->screen_x + left_dx * y_bump;
-	//float x_right = right->screen_x + right_dx * y_bump;
-	float x_left = intify(left->screen_x);
-	float x_right = intify(right->screen_x);
-
-	float left_dcam_x = (bottom->getX() - left->getX()) / height;
-	float right_dcam_x = (bottom->getX() - right->getX()) / height;
-	//float cam_x_left = left->getX() + left_dcam_x * y_bump;
-	//float cam_x_right = right->getX() + right_dcam_x * y_bump;
-	float cam_x_left = left->getX();
-	float cam_x_right = right->getX();
-
-	float left_dcam_y = (bottom->getY() - left->getY()) / height;
-	float right_dcam_y = (bottom->getY() - right->getY()) / height;
-	//float cam_y_left = left->getY() + left_dcam_y * y_bump;
-	//float cam_y_right = right->getY() + right_dcam_y * y_bump;
-	float cam_y_left = left->getY();
-	float cam_y_right = right->getY();
-
-	float left_dcam_z = (bottom->getZ() - left->getZ()) / height;
-	float right_dcam_z = (bottom->getZ() - right->getZ()) / height;
-	//float cam_z_left = left->getZ() + left_dcam_z * y_bump;
-	//float cam_z_right = right->getZ() + right_dcam_z * y_bump;
-	float cam_z_left = left->getZ();
-	float cam_z_right = right->getZ();
-
-	float left_dnorm_x = (bottom->getOrthoX() - left->getOrthoX()) / height;
-	float right_dnorm_x = (bottom->getOrthoX() - right->getOrthoX()) / height;
-	//float norm_x_left = left->getOrthoX() + left_dnorm_x * y_bump;
-	//float norm_x_right = right->getOrthoX() + right_dnorm_x * y_bump;
-	float norm_x_left = left->getOrthoX();
-	float norm_x_right = right->getOrthoX();
-
-	float left_dnorm_y = (bottom->getOrthoY() - left->getOrthoY()) / height;
-	float right_dnorm_y = (bottom->getOrthoY() - right->getOrthoY()) / height;
-	//float norm_y_left = left->getOrthoY() + left_dnorm_y * y_bump;
-	//float norm_y_right = right->getOrthoY() + right_dnorm_y * y_bump;
-	float norm_y_left = left->getOrthoY();
-	float norm_y_right = right->getOrthoY();
-
-	float left_dnorm_z = (bottom->getOrthoZ() - left->getOrthoZ()) / height;
-	float right_dnorm_z = (bottom->getOrthoZ() - right->getOrthoZ()) / height;
-	//float norm_z_left = left->getOrthoZ() + left_dnorm_z * y_bump;
-	//float norm_z_right = right->getOrthoZ() + right_dnorm_z * y_bump;
-	float norm_z_left = left->getOrthoZ();
-	float norm_z_right = right->getOrthoZ();
-
-	fillScanLines(yPos, yEnd,
-			x_left, left_dx,
-			x_right, right_dx,
-			cam_x_left, left_dcam_x,
-			cam_x_right, right_dcam_x,
-			cam_y_left, left_dcam_y,
-			cam_y_right, right_dcam_y,
-			cam_z_left, left_dcam_z,
-			cam_z_right, right_dcam_z,
-			norm_x_left, left_dnorm_x,
-			norm_x_right, right_dnorm_x,
-			norm_y_left, left_dnorm_y,
-			norm_y_right, right_dnorm_y,
-			norm_z_left, left_dnorm_z,
-			norm_z_right, right_dnorm_z,
-			color3f
-			);
-}
-
-void fillFlatBottom(RzVertex3f *v1, RzVertex3f *v2, RzVertex3f *top, RzColor3f *color3f) {
-	RzVertex3f *left, *right;
-	if (v1->screen_x < v2->screen_x) {
-		left = v1;
-		right = v2;
-	} else {
-		left = v2;
-		right = v1;
+	if (isfinite(rightSlope)) {
+		bRight = (float)intify(right->screen_y) - rightSlope * (float)intify(right->screen_x);
 	}
 
 	int yPos = intify(top->screen_y);
-	int yEnd = intify(left->screen_y);
+	int yEnd = intify(mid->screen_y);
+	int xPos;
+	float xLeft, xRight;
+	int xMin, xMax;
+	VECTOR3D surface_normal;
+	float cam_x, cam_y, cam_z;
 
 	float height = yEnd - yPos;
 
@@ -510,15 +489,10 @@ void fillFlatBottom(RzVertex3f *v1, RzVertex3f *v2, RzVertex3f *top, RzColor3f *
 		return;
 	}
 	*/
-
-	float left_dx = (float)(intify(left->screen_x) - intify(top->screen_x)) / height;
-	float right_dx = (float)(intify(right->screen_x) - intify(top->screen_x)) / height;
 
 	//float y_bump = yPos - top->screen_y;
 	//float x_left = top->screen_x + left_dx * y_bump;
 	//float x_right = top->screen_x + right_dx * y_bump;
-	float x_left = intify(top->screen_x);
-	float x_right = intify(top->screen_x);
 
 	float left_dcam_x = (left->getX() - top->getX()) / height;
 	float right_dcam_x = (right->getX() - top->getX()) / height;
@@ -562,25 +536,119 @@ void fillFlatBottom(RzVertex3f *v1, RzVertex3f *v2, RzVertex3f *top, RzColor3f *
 	float norm_z_left = top->getOrthoZ();
 	float norm_z_right = top->getOrthoZ();
 
-	fillScanLines(yPos, yEnd,
-			x_left, left_dx,
-			x_right, right_dx,
-			cam_x_left, left_dcam_x,
-			cam_x_right, right_dcam_x,
-			cam_y_left, left_dcam_y,
-			cam_y_right, right_dcam_y,
-			cam_z_left, left_dcam_z,
-			cam_z_right, right_dcam_z,
-			norm_x_left, left_dnorm_x,
-			norm_x_right, right_dnorm_x,
-			norm_y_left, left_dnorm_y,
-			norm_y_right, right_dnorm_y,
-			norm_z_left, left_dnorm_z,
-			norm_z_right, right_dnorm_z,
-			color3f
-			);
-}
+	float line_width;
+	float cam_x_value, cam_y_value, cam_z_value,
+			norm_x_value, norm_y_value, norm_z_value;
+	float horizontal_dcam_x, horizontal_dcam_y, horizontal_dcam_z,
+			horizontal_dnorm_x, horizontal_dnorm_y, horizontal_dnorm_z;
 
+	//xMin = xMaxLeft = xRight = (float)intify(bottom->screen_x);
+
+	//RzColor3f color;
+	//color.setRed(1.0);
+	//drawPoint2i(intify(bottom->screen_x), intify(bottom->screen_y), bottom->getZ(), &color);
+
+	while (yPos <= yEnd) {
+		// fill in the line
+
+		if (isfinite(leftSlope)) {
+			xLeft = ((float)yPos - bLeft) / leftSlope;
+		} else {
+			xLeft = (float)intify(left->screen_x);
+		}
+
+		if (isfinite(rightSlope)) {
+			xRight = ((float)yPos - bRight) / rightSlope;
+		} else {
+			xRight = (float)intify(right->screen_x);
+		}
+
+		xMin = intify(xLeft);
+		xMax = intify(xRight);
+
+//		if (xMin < xMax) {
+//			if (numScanLines >= maxScanLines) {
+//				return;
+//			} else {
+//				++numScanLines;
+//			}
+//		}
+		line_width = xMax - xMin;
+
+		horizontal_dcam_x = (cam_x_right - cam_x_left) / line_width;
+		cam_x_value = cam_x_left;
+
+		horizontal_dcam_y = (cam_y_right - cam_y_left) / line_width;
+		cam_y_value = cam_y_left;
+
+		horizontal_dcam_z = (cam_z_right - cam_z_left) / line_width;
+		cam_z_value = cam_z_left;
+
+		horizontal_dnorm_x = (norm_x_right - norm_x_left) / line_width;
+		norm_x_value = norm_x_left;
+
+		horizontal_dnorm_y = (norm_y_right - norm_y_left) / line_width;
+		norm_y_value = norm_y_left;
+
+		horizontal_dnorm_z = (norm_z_right - norm_z_left) / line_width;
+		norm_z_value = norm_z_left;
+
+		xPos = xMin;
+		while (xPos < xMax) {
+			/*
+			interpolateNormal(top, xLeft, (float)xPos, (float)yPos, xRight, mid, bottom, &surface_normal);
+			cam_x = interpolateComponent(top->getX(), mid->getX(), bottom->getX(),
+					top->screen_y, (float)yPos, mid->screen_y, bottom->screen_y,
+					xLeft, (float)xPos, xRight);
+			cam_y = interpolateComponent(top->getY(), mid->getY(), bottom->getY(),
+					top->screen_y, (float)yPos, mid->screen_y, bottom->screen_y,
+					xLeft, (float)xPos, xRight);
+			cam_z = interpolateComponent(top->getZ(), mid->getZ(), bottom->getZ(),
+					top->screen_y, (float)yPos, mid->screen_y, bottom->screen_y,
+					xLeft, (float)xPos, xRight);
+
+			drawPoint2iWithShading(xPos, yPos,
+					cam_x, cam_y, cam_z,
+					&surface_normal,
+					color3f
+			);
+			*/
+			VECTOR3D_INITXYZ(&surface_normal, norm_x_value, norm_y_value, norm_z_value);
+
+			drawPoint2iWithShading(xPos, yPos,
+					cam_x_value, cam_y_value, cam_z_value,
+					&surface_normal,
+					color3f
+					);
+
+			++xPos;
+
+			cam_x_value += horizontal_dcam_x;
+			cam_y_value += horizontal_dcam_y;
+			cam_z_value += horizontal_dcam_z;
+
+			norm_x_value += horizontal_dnorm_x;
+			norm_y_value += horizontal_dnorm_y;
+			norm_z_value += horizontal_dnorm_z;
+		}
+
+		++yPos;
+
+		cam_x_left += left_dcam_x;
+		cam_x_right += right_dcam_x;
+		cam_y_left += left_dcam_y;
+		cam_y_right += right_dcam_y;
+		cam_z_left += left_dcam_z;
+		cam_z_right += right_dcam_z;
+
+		norm_x_left += left_dnorm_x;
+		norm_x_right += right_dnorm_x;
+		norm_y_left += left_dnorm_y;
+		norm_y_right += right_dnorm_y;
+		norm_z_left += left_dnorm_z;
+		norm_z_right += right_dnorm_z;
+	}
+}
 
 string getModelPath(int modelIndex) {
 	return "data/" + modelFiles[modelIndex];
@@ -694,8 +762,8 @@ void main_loop_function()
 //		continue;
 
 
-		numPointPlots = 0;
-		numScanLines = 0;
+		//numPointPlots = 0;
+		//numScanLines = 0;
 
 		// initialize the buffers
 		for (x = 0; x < WINDOW_WIDTH; ++x) {
@@ -983,66 +1051,29 @@ void main_loop_function()
 						}
 					}
 
-					// some trivial clipping
-					if (intify(topVertex->screen_y) >= WINDOW_HEIGHT ||
-							intify(bottomVertex->screen_y) < 0) {
-						continue;
-					}
+					// sort vertices with same y
+					if (intify(topVertex->screen_y) == intify(bottomVertex->screen_y)) {
+						// perfectly flat line
+						// sort by x value
+						if (intify(midVertex->screen_x) > intify(bottomVertex->screen_x)) {
+							swapPointers((void**)&midVertex, (void**)&bottomVertex);
+						}
+						if (intify(topVertex->screen_x) > intify(midVertex->screen_x)) {
+							swapPointers((void**)&topVertex, (void**)&midVertex);
 
-					// check for degenerate triangle
-					if (
-							(
-								intify(topVertex->screen_x) == intify(midVertex->screen_x) &&
-								intify(midVertex->screen_x) == intify(bottomVertex->screen_x)
-							)
-							||
-							(
-								intify(topVertex->screen_y) == intify(midVertex->screen_y) &&
-								intify(midVertex->screen_y) == intify(bottomVertex->screen_y)
-							)
-						) {
-						continue;
-					}
-
-					//if (FCMP(topVertex->screen_y, midVertex->screen_y)) {
-					if (intify(topVertex->screen_y) == intify(midVertex->screen_y)) {
-
+							if (intify(midVertex->screen_x) > intify(bottomVertex->screen_x)) {
+								swapPointers((void**)&midVertex, (void**)&bottomVertex);
+							}
+						}
+					} else if (intify(topVertex->screen_y) == intify(midVertex->screen_y)) {
 						// flat on top
-						fillFlatTop(topVertex, midVertex, bottomVertex, color3f);
-					//} else if (FCMP(midVertex->screen_y, bottomVertex->screen_y)) {
+						if (intify(topVertex->screen_x) > intify(midVertex->screen_x)) {
+							swapPointers((void**)&topVertex, (void**)&midVertex);
+						}
 					} else if (intify(midVertex->screen_y) == intify(bottomVertex->screen_y)) {
 						// flat on bottom
-						fillFlatBottom(midVertex, bottomVertex, topVertex, color3f);
-					} else {
-						// split triangle into top and bottom
-						float scalar = (midVertex->getY() - topVertex->getY()) /
-								(bottomVertex->getY() - topVertex->getY());
-						RzVertex3f mid2;
-						mid2.screen_x = topVertex->screen_x +
-								(bottomVertex->screen_x - topVertex->screen_x) * scalar;
-						mid2.screen_y = midVertex->screen_y;
-						mid2.setX(topVertex->getX() +
-								(bottomVertex->getX() - topVertex->getX()) * scalar);
-						mid2.setY(midVertex->getY());
-						mid2.setZ(topVertex->getZ() +
-								(bottomVertex->getZ() - topVertex->getZ()) * scalar);
-						mid2.setOrthoX(topVertex->getOrthoX() +
-								(bottomVertex->getOrthoX() - topVertex->getOrthoX()) * scalar);
-						mid2.setOrthoY(topVertex->getOrthoY() +
-								(bottomVertex->getOrthoY() - topVertex->getOrthoY()) * scalar);
-						mid2.setOrthoZ(topVertex->getOrthoZ() +
-								(bottomVertex->getOrthoZ() - topVertex->getOrthoZ()) * scalar);
-
-						if (isfinite(scalar)) {
-							fillFlatTop(midVertex, &mid2, bottomVertex, color3f);
-							fillFlatBottom(midVertex, &mid2, topVertex, color3f);
-						} else {
-							/*
-							Debugger::getInstance().print("top: " + topVertex->toString());
-							Debugger::getInstance().print("mid1: " + midVertex->toString());
-							Debugger::getInstance().print("mid2: " + mid2.toString());
-							Debugger::getInstance().print("bottom: " + bottomVertex->toString());
-							*/
+						if (intify(bottomVertex->screen_x) > intify(midVertex->screen_x)) {
+							swapPointers((void**)&bottomVertex, (void**)&midVertex);
 						}
 					}
 
@@ -1066,6 +1097,168 @@ void main_loop_function()
 					}
 					*/
 
+					// calculate the slopes
+					slopeTopMid = computeSlope2d(topVertex, midVertex);
+					slopeTopBottom = computeSlope2d(topVertex, bottomVertex);
+					slopeMidBottom = computeSlope2d(midVertex, bottomVertex);
+
+					RzVertex3f *bottomLeft, *bottomRight, *topLeft, *topRight;
+
+					float bottomLeftSlope, bottomRightSlope, topLeftSlope, topRightSlope;
+
+					if (slopeTopMid == 0) {
+							// top and mid are on same y, different x
+
+						if (slopeTopBottom == 0) {
+								// all points on same y
+							// ignore
+						} else if (isnan(slopeTopBottom) || isnan(slopeMidBottom)) {
+							// ignore
+						} else {
+							if (intify(topVertex->screen_x) < intify(midVertex->screen_x)) {
+								topLeft = topVertex;
+								topRight = midVertex;
+								topLeftSlope = slopeTopBottom;
+								topRightSlope = slopeMidBottom;
+							} else {
+								topLeft = midVertex;
+								topRight = topVertex;
+								topLeftSlope = slopeMidBottom;
+								topRightSlope = slopeTopBottom;
+							}
+
+							fillFlatTop(topVertex, midVertex, bottomVertex, topLeft, topRight,
+									topLeftSlope, topRightSlope, color3f);
+						}
+					} else if (isnan(slopeTopMid)) {
+							// top and mid are the same point
+						// ignore
+					} else if (!isfinite(slopeTopMid)) {
+							// top and mid are the same horizontal
+
+						if (isnan(slopeMidBottom)) {
+							// ignore
+						} else if (!isfinite(slopeMidBottom)) {
+							// ignore
+						} else {
+							if (intify(bottomVertex->screen_x) > intify(midVertex->screen_x)) {
+								bottomLeft = midVertex;
+								bottomLeftSlope = slopeTopMid;
+								bottomRight = bottomVertex;
+								bottomRightSlope = slopeTopBottom;
+
+							} else {
+								bottomRight = midVertex;
+								bottomLeft = bottomVertex;
+								bottomRightSlope = slopeTopMid;
+								bottomLeftSlope = slopeTopBottom;
+							}
+
+							fillFlatBottom(topVertex, midVertex, bottomVertex, bottomLeft, bottomRight,
+									bottomLeftSlope, bottomRightSlope, color3f);
+
+							if (slopeMidBottom == 0) {
+								// ignore drawing flat top triangle
+							} else {
+								if (intify(bottomVertex->screen_x) > intify(midVertex->screen_x)) {
+									topLeft = midVertex;
+									topLeftSlope = slopeMidBottom;
+									topRight = topVertex;
+									topRightSlope = slopeTopBottom;
+
+								} else {
+									topRight = midVertex;
+									topLeft = topVertex;
+									topRightSlope = slopeMidBottom;
+									topLeftSlope = slopeTopBottom;
+								}
+
+								fillFlatTop(topVertex, midVertex, bottomVertex, topLeft, topRight,
+										topLeftSlope, topRightSlope, color3f);
+							}
+						}
+					} else {
+						// mid is below top but not horizontal or vertical to it
+						if (isnan(slopeMidBottom)) {
+							// ignore
+						} else if (slopeMidBottom == 0) {
+							// just fill the flat bottom
+							if (intify(bottomVertex->screen_x) > intify(midVertex->screen_x)) {
+								bottomLeft = midVertex;
+								bottomLeftSlope = slopeTopMid;
+								bottomRight = bottomVertex;
+								bottomRightSlope = slopeTopBottom;
+
+							} else {
+								bottomRight = midVertex;
+								bottomLeft = bottomVertex;
+								bottomRightSlope = slopeTopMid;
+								bottomLeftSlope = slopeTopBottom;
+							}
+
+							fillFlatBottom(topVertex, midVertex, bottomVertex, bottomLeft, bottomRight,
+									bottomLeftSlope, bottomRightSlope, color3f);
+						} else {
+							// figure out which point goes left and which goes right from top
+
+							deltaTopMid = 1.0 / slopeTopMid;
+							deltaTopBottom = 1.0 / slopeTopBottom;
+
+//							bool display = false;
+//							if ((numScanLines + 1) == maxScanLines && lastNumScanLines != numScanLines) {
+//								ss.clear();
+//								display = true;
+//								ss << "deltaTopMid: " << deltaTopMid << " deltaTopBottom: " << deltaTopBottom;
+//								ss << " top: " << intify(topVertex->screen_x) << ", " << intify(topVertex->screen_y);
+//								ss << " mid: " << intify(midVertex->screen_x) << ", " << intify(midVertex->screen_y);
+//								ss << " bottom: " << intify(bottomVertex->screen_x) << ", " << intify(bottomVertex->screen_y);
+//								ss << endl;
+//								Debugger::getInstance().print(ss.str());
+//								lastNumScanLines = numScanLines;
+//							}
+
+							if (deltaTopMid < deltaTopBottom) {
+//								if (display) {
+//									ss.clear();
+//									ss << "deltaTopMid < deltaTopBottom" << endl;
+//									Debugger::getInstance().print(ss.str());
+//								}
+								// top to mid is left
+								topLeft = midVertex;
+								topRight = topVertex;
+								topLeftSlope = slopeMidBottom;
+								topRightSlope = slopeTopBottom;
+
+								bottomLeft = midVertex;
+								bottomRight = bottomVertex;
+								bottomLeftSlope = slopeTopMid;
+								bottomRightSlope = slopeTopBottom;
+
+							} else {
+								topLeft = topVertex;
+								topLeftSlope = slopeTopBottom;
+								topRight = midVertex;
+								topRightSlope = slopeMidBottom;
+
+								bottomLeft = bottomVertex;
+								bottomRight = midVertex;
+								bottomLeftSlope = slopeTopBottom;
+								bottomRightSlope = slopeTopMid;
+							}
+//							if (display) {
+//								ss.clear();
+//								ss << "isfinite(bottomRightSlope): " << isfinite(bottomRightSlope);
+//								ss << " ";
+//								ss << "isfinite(bottomLeftSlope): " << isfinite(bottomLeftSlope);
+//								ss << endl;
+//							}
+
+							fillFlatTop(topVertex, midVertex, bottomVertex, topLeft, topRight,
+									topLeftSlope, topRightSlope, color3f);
+							fillFlatBottom(topVertex, midVertex, bottomVertex, bottomLeft, bottomRight,
+									bottomLeftSlope, bottomRightSlope, color3f);
+						}
+					}
 				}
 			}
 		}
@@ -1088,17 +1281,9 @@ void main_loop_function()
 
 		SDL_GL_SwapBuffers();
 		// Check keypresses
-		if (key[SDLK_g]) {
-			--maxPointPlots;
-			--maxScanLines;
-			printScanLineInfo = true;
-		}
-		if (key[SDLK_h]) {
-			++maxPointPlots;
-			++maxScanLines;
-			printScanLineInfo = true;
-		}
 		if(key[SDLK_RIGHT]) {
+			//++maxPointPlots;
+			//++maxScanLines;
 			//angle-=0.5;
 
 			// move camera around origin
@@ -1118,6 +1303,8 @@ void main_loop_function()
 			VECTOR3D_COPY(&camera_position, &result_3d);
 		}
 		if(key[SDLK_LEFT]) {
+			//--maxPointPlots;
+			//--maxScanLines;
 			//angle+=0.5;
 			//rotation += 0.05;
 
