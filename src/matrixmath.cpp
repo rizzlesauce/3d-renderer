@@ -1,18 +1,8 @@
-// T3DLIB1.CPP - Game Engine Part I
- 
+// Extracted from Andre Lamothe's T3DLIB1.CPP - Game Engine Part I
+
 // INCLUDES ///////////////////////////////////////////////
 
-//#define WIN32_LEAN_AND_MEAN  
-
-// has the GUID library been included?
-//#ifndef INITGUID
-//#define INITGUID
-//#endif
-
-#define DEBUG_ON
-
 #include <stdlib.h>
-//#include <malloc.h>
 #include <memory.h>
 #include <string.h>
 #include <stdarg.h>
@@ -22,19 +12,10 @@
 #include <sys/timeb.h>
 #include <time.h>
 
-
 #include "matrixmath.h"
 #include <sstream>
 #include <string>
 using namespace std;
-
-// DEFINES ////////////////////////////////////////////////
-
-// TYPES //////////////////////////////////////////////////
-
-// PROTOTYPES /////////////////////////////////////////////
-
-// EXTERNALS /////////////////////////////////////////////
 
 // GLOBALS ////////////////////////////////////////////////
 
@@ -47,20 +28,20 @@ USHORT (*RGB16Bit)(int r, int g, int b) = NULL;
 
 void Build_Sin_Cos_Tables(void)
 {
-  
+
 // create sin/cos lookup table
 // note the creation of one extra element; 360
 // this helps with logic in using the tables
 
-// generate the tables 0 - 360 inclusive
-for (int ang = 0; ang <= 360; ang++)
+    // generate the tables 0 - 360 inclusive
+    for (int ang = 0; ang <= 360; ang++)
     {
-    // convert ang to radians
-    float theta = (float)ang*PI/(float)180;
+        // convert ang to radians
+        float theta = (float)ang*PI/(float)180;
 
-    // insert next entry into table
-    cos_look[ang] = cos(theta);
-    sin_look[ang] = sin(theta);
+        // insert next entry into table
+        cos_look[ang] = cos(theta);
+        sin_look[ang] = sin(theta);
 
     } // end for ang
 
@@ -68,18 +49,18 @@ for (int ang = 0; ang <= 360; ang++)
 
 //////////////////////////////////////////////////////////////
 
-int Mat_Mul_3X3(MATRIX3X3_PTR ma, 
+int Mat_Mul_3X3(MATRIX3X3_PTR ma,
                MATRIX3X3_PTR mb,
                MATRIX3X3_PTR mprod)
 {
-// this function multiplies two matrices together and 
+// this function multiplies two matrices together
 // and stores the result
 
 for (int row=0; row<3; row++)
     {
     for (int col=0; col<3; col++)
         {
-        // compute dot product from row of ma 
+        // compute dot product from row of ma
         // and column of mb
 
         float sum = 0; // used to hold result
@@ -103,16 +84,16 @@ return(1);
 
 ////////////////////////////////////////////////////////////////
 
-int Mat_Mul_1X3_3X3(MATRIX1X3_PTR ma, 
+int Mat_Mul_1X3_3X3(MATRIX1X3_PTR ma,
                    MATRIX3X3_PTR mb,
                    MATRIX1X3_PTR mprod)
 {
-// this function multiplies a 1x3 matrix against a 
+// this function multiplies a 1x3 matrix against a
 // 3x3 matrix - ma*mb and stores the result
 
     for (int col=0; col<3; col++)
         {
-        // compute dot product from row of ma 
+        // compute dot product from row of ma
         // and column of mb
 
         float sum = 0; // used to hold result
@@ -134,20 +115,20 @@ return(1);
 
 ////////////////////////////////////////////////////////////////
 
-int Mat_Mul_1X2_3X2(MATRIX1X2_PTR ma, 
+int Mat_Mul_1X2_3X2(MATRIX1X2_PTR ma,
                    MATRIX3X2_PTR mb,
                    MATRIX1X2_PTR mprod)
 {
-// this function multiplies a 1x2 matrix against a 
+// this function multiplies a 1x2 matrix against a
 // 3x2 matrix - ma*mb and stores the result
-// using a dummy element for the 3rd element of the 1x2 
+// using a dummy element for the 3rd element of the 1x2
 // to make the matrix multiply valid i.e. 1x3 X 3x2
 
     int index;
 
     for (int col=0; col<2; col++)
         {
-        // compute dot product from row of ma 
+        // compute dot product from row of ma
         // and column of mb
 
         float sum = 0; // used to hold result
@@ -158,7 +139,7 @@ int Mat_Mul_1X2_3X2(MATRIX1X2_PTR ma,
              sum+=(ma->M[index]*mb->M[index][col]);
              } // end for index
 
-        // add in last element * 1 
+        // add in last element * 1
         sum+= mb->M[index][col];
 
         // insert resulting col element
@@ -182,7 +163,7 @@ FIXP16 fp_prod; // return the product
 _asm {
      mov eax, fp1      // move into eax fp2
      imul fp2          // multiply fp1*fp2
-     shrd eax, edx, 16 // result is in 32:32 format 
+     shrd eax, edx, 16 // result is in 32:32 format
                        // residing at edx:eax
                        // shift it into eax alone 16:16
      // result is sitting in eax
@@ -206,7 +187,7 @@ _asm {
      sal eax, 16       // and shift eax into position since the
                        // shld didn't move it -- DUMB! uPC
      idiv fp2          // do the divide
-     // result is sitting in eax     
+     // result is sitting in eax
      } // end asm
 
 } // end FIXP16_DIV
@@ -251,7 +232,7 @@ qconj->w = q->w;
 
 void QUAT_Scale(QUAT_PTR q, float scale, QUAT_PTR qs)
 {
-// this function scales a quaternion and returns it 
+// this function scales a quaternion and returns it
 qs->x = scale*q->x;
 qs->y = scale*q->y;
 qs->z = scale*q->z;
@@ -293,7 +274,7 @@ return(q->w*q->w + q->x*q->x + q->y*q->y + q->z*q->z);
 
 void QUAT_Normalize(QUAT_PTR q, QUAT_PTR qn)
 {
-// this functions normalizes the sent quaternion and 
+// this functions normalizes the sent quaternion and
 // returns it
 
 // compute 1/length
@@ -423,10 +404,10 @@ qprod->z = prd_3 + prd_9 - prd_6;
 
 ///////////////////////////////////////////////////////////
 
-void QUAT_Triple_Product(QUAT_PTR q1, QUAT_PTR q2, QUAT_PTR q3, 
+void QUAT_Triple_Product(QUAT_PTR q1, QUAT_PTR q2, QUAT_PTR q3,
                          QUAT_PTR qprod)
 {
-// this function computes q1*q2*q3 in that order and returns 
+// this function computes q1*q2*q3 in that order and returns
 // the results in qprod
 
 QUAT qtmp;
@@ -555,7 +536,7 @@ float theta_frac = theta - theta_int;
 // and interpolating the fractional part, note that if theta_int
 // is equal to 359 then theta_int+1=360, but this is fine since the
 // table was made with the entries 0-360 inclusive
-return(sin_look[theta_int] + 
+return(sin_look[theta_int] +
        theta_frac*(sin_look[theta_int+1] - sin_look[theta_int]));
 
 } // end Fast_Sin
@@ -584,7 +565,7 @@ float theta_frac = theta - theta_int;
 // and interpolating the fractional part, note that if theta_int
 // is equal to 359 then theta_int+1=360, but this is fine since the
 // table was made with the entries 0-360 inclusive
-return(cos_look[theta_int] + 
+return(cos_look[theta_int] +
        theta_frac*(cos_look[theta_int+1] - cos_look[theta_int]));
 
 } // end Fast_Cos
@@ -642,7 +623,7 @@ rect->z = cyl->z;
 
 ////////////////////////////////////////////////////////////////
 
-void CYLINDRICAL3D_To_RectXYZ(CYLINDRICAL3D_PTR cyl,  
+void CYLINDRICAL3D_To_RectXYZ(CYLINDRICAL3D_PTR cyl,
                               float *x, float *y, float *z)
 {
 // convert cylindrical to rectangular
@@ -654,7 +635,7 @@ void CYLINDRICAL3D_To_RectXYZ(CYLINDRICAL3D_PTR cyl,
 
 ///////////////////////////////////////////////////////////////
 
-void POINT3D_To_CYLINDRICAL3D(POINT3D_PTR rect, 
+void POINT3D_To_CYLINDRICAL3D(POINT3D_PTR rect,
                               CYLINDRICAL3D_PTR cyl)
 {
 // convert rectangular to cylindrical
@@ -666,7 +647,7 @@ cyl->z     = rect->z;
 
 ///////////////////////////////////////////////////////////////
 
-void POINT3D_To_CylindricalRThZ(POINT3D_PTR rect, 
+void POINT3D_To_CylindricalRThZ(POINT3D_PTR rect,
                                        float *r, float *theta, float *z)
 {
 // convert rectangular to cylindrical
@@ -695,7 +676,7 @@ rect->y = r*sinf(sph->theta);
 
 ////////////////////////////////////////////////////////////////
 
-void SPHERICAL3D_To_RectXYZ(SPHERICAL3D_PTR sph, 
+void SPHERICAL3D_To_RectXYZ(SPHERICAL3D_PTR sph,
                                    float *x, float *y, float *z)
 {
 // convert spherical to rectangular
@@ -730,7 +711,7 @@ sph->phi   = asinf(r/sph->p);
 
 ////////////////////////////////////////////////////////////
 
-void POINT3D_To_SphericalPThPh(POINT3D_PTR rect, 
+void POINT3D_To_SphericalPThPh(POINT3D_PTR rect,
                                       float *p, float *theta, float *phi)
 {
 // convert rectangular to spherical
@@ -745,8 +726,8 @@ float r = sqrtf((rect->x * rect->x) + (rect->y * rect->y));
 
 /////////////////////////////////////////////////////////////
 
-void VECTOR2D_Add(VECTOR2D_PTR va, 
-                         VECTOR2D_PTR vb, 
+void VECTOR2D_Add(VECTOR2D_PTR va,
+                         VECTOR2D_PTR vb,
                          VECTOR2D_PTR vsum)
 {
 // this function adds va+vb and return it in vsum
@@ -757,10 +738,10 @@ vsum->y = va->y + vb->y;
 
 ////////////////////////////////////////////////////////////
 
-VECTOR2D VECTOR2D_Add(VECTOR2D_PTR va, 
+VECTOR2D VECTOR2D_Add(VECTOR2D_PTR va,
                       VECTOR2D_PTR vb)
 {
-// this function adds va+vb and returns the result on 
+// this function adds va+vb and returns the result on
 // the stack
 VECTOR2D vsum;
 
@@ -774,8 +755,8 @@ return(vsum);
 
 ////////////////////////////////////////////////////////////
 
-void VECTOR2D_Sub(VECTOR2D_PTR va, 
-                         VECTOR2D_PTR vb, 
+void VECTOR2D_Sub(VECTOR2D_PTR va,
+                         VECTOR2D_PTR vb,
                          VECTOR2D_PTR vdiff)
 {
 // this function subtracts va-vb and return it in vdiff
@@ -787,10 +768,10 @@ vdiff->y = va->y - vb->y;
 
 ////////////////////////////////////////////////////////////
 
-VECTOR2D VECTOR2D_Sub(VECTOR2D_PTR va, 
+VECTOR2D VECTOR2D_Sub(VECTOR2D_PTR va,
                       VECTOR2D_PTR vb)
 {
-// this function subtracts va-vb and returns the result on 
+// this function subtracts va-vb and returns the result on
 // the stack
 VECTOR2D vdiff;
 
@@ -798,14 +779,14 @@ vdiff.x = va->x - vb->x;
 vdiff.y = va->y - vb->y;
 
 // return result
-return(vdiff);                      
+return(vdiff);
 
 } // end VECTOR2D_Sub
 
 ////////////////////////////////////////////////////////////
 
-void VECTOR2D_Scale(float k, 
-                    VECTOR2D_PTR va, 
+void VECTOR2D_Scale(float k,
+                    VECTOR2D_PTR va,
                     VECTOR2D_PTR vscaled)
 {
 // this function scales a vector by the constant k,
@@ -914,7 +895,7 @@ float length = sqrtf(va->x*va->x + va->y*va->y );
 
 // test for zero length vector
 // if found return zero vector
-if (length < EPSILON_E5) 
+if (length < EPSILON_E5)
    return;
 
 float length_inv = 1/length;
@@ -938,7 +919,7 @@ float length = (float)sqrtf(va->x*va->x + va->y*va->y );
 
 // test for zero length vector
 // if found return zero vector
-if (length < EPSILON_E5) 
+if (length < EPSILON_E5)
    return;
 
 float length_inv = 1/length;
@@ -980,8 +961,8 @@ return(VECTOR2D_Dot(va,vb)/(VECTOR2D_Length(va)*VECTOR2D_Length(vb)));
 
 /////////////////////////////////////////////////////////////
 
-void VECTOR3D_Add(VECTOR3D_PTR va, 
-                  VECTOR3D_PTR vb, 
+void VECTOR3D_Add(VECTOR3D_PTR va,
+                  VECTOR3D_PTR vb,
                   VECTOR3D_PTR vsum)
 {
 // this function adds va+vb and return it in vsum
@@ -993,10 +974,10 @@ vsum->z = va->z + vb->z;
 
 ////////////////////////////////////////////////////////////
 
-VECTOR3D VECTOR3D_Add(VECTOR3D_PTR va, 
+VECTOR3D VECTOR3D_Add(VECTOR3D_PTR va,
                       VECTOR3D_PTR vb)
 {
-// this function adds va+vb and returns the result on 
+// this function adds va+vb and returns the result on
 // the stack
 VECTOR3D vsum;
 
@@ -1011,8 +992,8 @@ return(vsum);
 
 ////////////////////////////////////////////////////////////
 
-void VECTOR3D_Sub(VECTOR3D_PTR va, 
-                  VECTOR3D_PTR vb, 
+void VECTOR3D_Sub(VECTOR3D_PTR va,
+                  VECTOR3D_PTR vb,
                   VECTOR3D_PTR vdiff)
 {
 // this function subtracts va-vb and return it in vdiff
@@ -1027,7 +1008,7 @@ vdiff->z = va->z - vb->z;
 
 VECTOR3D VECTOR3D_Sub(VECTOR3D_PTR va, VECTOR3D_PTR vb)
 {
-// this function subtracts va-vb and returns the result on 
+// this function subtracts va-vb and returns the result on
 // the stack
 VECTOR3D vdiff;
 
@@ -1036,7 +1017,7 @@ vdiff.y = va->y - vb->y;
 vdiff.z = va->z - vb->z;
 
 // return result
-return(vdiff);                      
+return(vdiff);
 
 } // end VECTOR3D_Sub
 
@@ -1085,7 +1066,7 @@ void VECTOR3D_Cross(VECTOR3D_PTR va, VECTOR3D_PTR vb, VECTOR3D_PTR vn)
 
 vn->x =  ( (va->y * vb->z) - (va->z * vb->y) );
 vn->y = -( (va->x * vb->z) - (va->z * vb->x) );
-vn->z =  ( (va->x * vb->y) - (va->y * vb->x) ); 
+vn->z =  ( (va->x * vb->y) - (va->y * vb->x) );
 
 } // end VECTOR3D_Cross
 
@@ -1100,7 +1081,7 @@ VECTOR3D vn;
 
 vn.x =  ( (va->y * vb->z) - (va->z * vb->y) );
 vn.y = -( (va->x * vb->z) - (va->z * vb->x) );
-vn.z =  ( (va->x * vb->y) - (va->y * vb->x) ); 
+vn.z =  ( (va->x * vb->y) - (va->y * vb->x) );
 
 // return result
 return(vn);
@@ -1138,7 +1119,7 @@ float length = sqrtf(va->x*va->x + va->y*va->y + va->z*va->z);
 
 // test for zero length vector
 // if found return zero vector
-if (length < EPSILON_E5) 
+if (length < EPSILON_E5)
    return;
 
 float length_inv = 1/length;
@@ -1163,7 +1144,7 @@ float length = VECTOR3D_Length(va);
 
 // test for zero length vector
 // if found return zero vector
-if (length < EPSILON_E5) 
+if (length < EPSILON_E5)
    return;
 
 float length_inv = 1.0/length;
@@ -1234,7 +1215,7 @@ vsum->w = 1;
 
 VECTOR4D VECTOR4D_Add(VECTOR4D_PTR va, VECTOR4D_PTR vb)
 {
-// this function adds va+vb and returns the result on 
+// this function adds va+vb and returns the result on
 // the stack
 VECTOR4D vsum;
 
@@ -1265,7 +1246,7 @@ vdiff->w = 1;
 
 VECTOR4D VECTOR4D_Sub(VECTOR4D_PTR va, VECTOR4D_PTR vb)
 {
-// this function subtracts va-vb and returns the result on 
+// this function subtracts va-vb and returns the result on
 // the stack
 VECTOR4D vdiff;
 
@@ -1275,7 +1256,7 @@ vdiff.z = va->z - vb->z;
 vdiff.w = 1;
 
 // return result
-return(vdiff);                      
+return(vdiff);
 
 } // end VECTOR4D_Sub
 
@@ -1320,7 +1301,7 @@ return( (va->x * vb->x) + (va->y * vb->y) + (va->z * vb->z) );
 
 /////////////////////////////////////////////////////////////
 
-void VECTOR4D_Cross(VECTOR4D_PTR va, 
+void VECTOR4D_Cross(VECTOR4D_PTR va,
                     VECTOR4D_PTR vb,
                     VECTOR4D_PTR vn)
 {
@@ -1329,7 +1310,7 @@ void VECTOR4D_Cross(VECTOR4D_PTR va,
 
 vn->x =  ( (va->y * vb->z) - (va->z * vb->y) );
 vn->y = -( (va->x * vb->z) - (va->z * vb->x) );
-vn->z =  ( (va->x * vb->y) - (va->y * vb->x) ); 
+vn->z =  ( (va->x * vb->y) - (va->y * vb->x) );
 vn->w = 1;
 
 } // end VECTOR4D_Cross
@@ -1345,7 +1326,7 @@ VECTOR4D vn;
 
 vn.x =  ( (va->y * vb->z) - (va->z * vb->y) );
 vn.y = -( (va->x * vb->z) - (va->z * vb->x) );
-vn.z =  ( (va->x * vb->y) - (va->y * vb->x) ); 
+vn.z =  ( (va->x * vb->y) - (va->y * vb->x) );
 vn.w = 1;
 
 // return result
@@ -1384,7 +1365,7 @@ float length = sqrtf(va->x*va->x + va->y*va->y + va->z*va->z);
 
 // test for zero length vector
 // if found return zero vector
-if (length < EPSILON_E5) 
+if (length < EPSILON_E5)
    return;
 
 float length_inv = 1.0/length;
@@ -1410,7 +1391,7 @@ float length = sqrt(va->x*va->x + va->y*va->y + va->z*va->z);
 
 // test for zero length vector
 // if found return zero vector
-if (length < EPSILON_E5) 
+if (length < EPSILON_E5)
    return;
 
 float length_inv = 1.0/length;
@@ -1440,15 +1421,15 @@ return(VECTOR4D_Dot(va,vb)/(VECTOR4D_Length(va)*VECTOR4D_Length(vb)));
 
 ////////////////////////////////////////////////////////////////
 
-void Mat_Init_2X2(MATRIX2X2_PTR ma, 
+void Mat_Init_2X2(MATRIX2X2_PTR ma,
                   float m00, float m01,
                   float m10, float m11)
 
 {
-// this function fills a 2x2 matrix with the sent data in 
+// this function fills a 2x2 matrix with the sent data in
 // row major form
-ma->M00 = m00; ma->M01 = m01; 
-ma->M10 = m10; ma->M11 = m11; 
+ma->M00 = m00; ma->M01 = m01;
+ma->M10 = m10; ma->M11 = m11;
 
 } // end Mat_Init_2X2
 
@@ -1469,7 +1450,7 @@ msum->M11 = ma->M11+mb->M11;
 
 void Mat_Mul_2X2(MATRIX2X2_PTR ma, MATRIX2X2_PTR mb, MATRIX2X2_PTR mprod)
 {
-// this function multiplies two 2x2 matrices together and 
+// this function multiplies two 2x2 matrices together and
 // and stores the result in mprod
 mprod->M00 = ma->M00*mb->M00 + ma->M01*mb->M10;
 mprod->M01 = ma->M00*mb->M01 + ma->M01*mb->M11;
@@ -1571,11 +1552,11 @@ return(1);
 
 ///////////////////////////////////////////////////////////////
 
-void Mat_Add_3X3(MATRIX3X3_PTR ma, 
+void Mat_Add_3X3(MATRIX3X3_PTR ma,
                  MATRIX3X3_PTR mb,
                  MATRIX3X3_PTR msum)
 {
-// this function adds two 3x3 matrices together and 
+// this function adds two 3x3 matrices together and
 // and stores the result
 
 for (int row=0; row<3; row++)
@@ -1592,16 +1573,16 @@ for (int row=0; row<3; row++)
 
 ////////////////////////////////////////////////////////////////////
 
-void Mat_Mul_VECTOR3D_3X3(VECTOR3D_PTR  va, 
+void Mat_Mul_VECTOR3D_3X3(VECTOR3D_PTR  va,
                           MATRIX3X3_PTR mb,
                           VECTOR3D_PTR  vprod)
 {
-// this function multiplies a VECTOR3D against a 
+// this function multiplies a VECTOR3D against a
 // 3x3 matrix - ma*mb and stores the result in mprod
 
     for (int col=0; col < 3; col++)
         {
-        // compute dot product from row of ma 
+        // compute dot product from row of ma
         // and column of mb
         float sum = 0; // used to hold result
 
@@ -1620,7 +1601,7 @@ void Mat_Mul_VECTOR3D_3X3(VECTOR3D_PTR  va,
 
 ////////////////////////////////////////////////////////////////////
 
-void Mat_Init_3X3(MATRIX3X3_PTR ma, 
+void Mat_Init_3X3(MATRIX3X3_PTR ma,
                   float m00, float m01, float m02,
                   float m10, float m11, float m12,
                   float m20, float m21, float m22)
@@ -1639,10 +1620,10 @@ ma->M20 = m20; ma->M21 = m21; ma->M22 = m22;
 {
 // this function computes the inverse of a 3x3
 
-// first compute the determinate to see if there is 
+// first compute the determinate to see if there is
 // an inverse
-float det = m->M00*(m->M11*m->M22 - m->M21*m->M12) - 
-            m->M01*(m->M10*m->M22 - m->M20*m->M12) + 
+float det = m->M00*(m->M11*m->M22 - m->M21*m->M12) -
+            m->M01*(m->M10*m->M22 - m->M20*m->M12) +
             m->M02*(m->M10*m->M21 - m->M20*m->M11);
 
 if (fabs(det) < EPSILON_E5)
@@ -1676,8 +1657,8 @@ float Mat_Det_3X3(MATRIX3X3_PTR m)
 // computes the determinate of a 3x3 matrix using co-factor
 // expansion
 
-return(m->M00*(m->M11*m->M22 - m->M21*m->M12) - 
-       m->M01*(m->M10*m->M22 - m->M20*m->M12) + 
+return(m->M00*(m->M11*m->M22 - m->M21*m->M12) -
+       m->M01*(m->M10*m->M22 - m->M20*m->M12) +
        m->M02*(m->M10*m->M21 - m->M20*m->M11) );
 
 } // end Mat_Det_3X3
@@ -1749,11 +1730,11 @@ return(1);
 
 ///////////////////////////////////////////////////////////////
 
-void Mat_Add_4X4(MATRIX4X4_PTR ma, 
+void Mat_Add_4X4(MATRIX4X4_PTR ma,
                  MATRIX4X4_PTR mb,
                  MATRIX4X4_PTR msum)
 {
-// this function adds two 4x4 matrices together and 
+// this function adds two 4x4 matrices together and
 // and stores the result
 
 for (int row=0; row<4; row++)
@@ -1770,11 +1751,11 @@ for (int row=0; row<4; row++)
 
 ///////////////////////////////////////////////////////////////
 
-void Mat_Mul_4X4(MATRIX4X4_PTR ma, 
+void Mat_Mul_4X4(MATRIX4X4_PTR ma,
                  MATRIX4X4_PTR mb,
                  MATRIX4X4_PTR mprod)
 {
-// this function multiplies two 4x4 matrices together and 
+// this function multiplies two 4x4 matrices together and
 // and stores the result in mprod
 // note later we will take advantage of the fact that we know
 // that w=1 always, and that the last column of a 4x4 is
@@ -1784,7 +1765,7 @@ for (int row=0; row<4; row++)
     {
     for (int col=0; col<4; col++)
         {
-        // compute dot product from row of ma 
+        // compute dot product from row of ma
         // and column of mb
 
         float sum = 0; // used to hold result
@@ -1806,17 +1787,17 @@ for (int row=0; row<4; row++)
 
 ////////////////////////////////////////////////////////////////
 
-void Mat_Mul_1X4_4X4(MATRIX1X4_PTR ma, 
+void Mat_Mul_1X4_4X4(MATRIX1X4_PTR ma,
                      MATRIX4X4_PTR mb,
                      MATRIX1X4_PTR mprod)
 {
-// this function multiplies a 1x4 matrix against a 
+// this function multiplies a 1x4 matrix against a
 // 4x4 matrix - ma*mb and stores the result
 // no tricks or assumptions here, just a straight multiply
 
     for (int col=0; col<4; col++)
         {
-        // compute dot product from row of ma 
+        // compute dot product from row of ma
         // and column of mb
         float sum = 0; // used to hold result
 
@@ -1835,13 +1816,13 @@ void Mat_Mul_1X4_4X4(MATRIX1X4_PTR ma,
 
 ////////////////////////////////////////////////////////////////////
 
-void Mat_Mul_VECTOR3D_4X4(VECTOR3D_PTR  va, 
+void Mat_Mul_VECTOR3D_4X4(VECTOR3D_PTR  va,
                           MATRIX4X4_PTR mb,
                           VECTOR3D_PTR  vprod)
 {
-// this function multiplies a VECTOR3D against a 
+// this function multiplies a VECTOR3D against a
 // 4x4 matrix - ma*mb and stores the result in mprod
-// the function assumes that the vector refers to a 
+// the function assumes that the vector refers to a
 // 4D homogenous vector, thus the function assumes that
 // w=1 to carry out the multiply, also the function
 // does not carry out the last column multiply since
@@ -1849,7 +1830,7 @@ void Mat_Mul_VECTOR3D_4X4(VECTOR3D_PTR  va,
 
     for (int col=0; col < 3; col++)
         {
-        // compute dot product from row of ma 
+        // compute dot product from row of ma
         // and column of mb
         float sum = 0; // used to hold result
 
@@ -1861,8 +1842,8 @@ void Mat_Mul_VECTOR3D_4X4(VECTOR3D_PTR  va,
              } // end for index
 
         // add in last element in column or w*mb[3][col]
-        sum+=mb->M[row][col];    
- 
+        sum+=mb->M[row][col];
+
         // insert resulting col element
         vprod->M[col] = sum;
 
@@ -1872,13 +1853,13 @@ void Mat_Mul_VECTOR3D_4X4(VECTOR3D_PTR  va,
 
 ///////////////////////////////////////////////////////////////
 
-void Mat_Mul_VECTOR3D_4X3(VECTOR3D_PTR  va, 
+void Mat_Mul_VECTOR3D_4X3(VECTOR3D_PTR  va,
                           MATRIX4X3_PTR mb,
                           VECTOR3D_PTR  vprod)
 {
-// this function multiplies a VECTOR3D against a 
+// this function multiplies a VECTOR3D against a
 // 4x3 matrix - ma*mb and stores the result in mprod
-// the function assumes that the vector refers to a 
+// the function assumes that the vector refers to a
 // 4D homogenous vector, thus the function assumes that
 // w=1 to carry out the multiply, also the function
 // does not carry out the last column multiply since
@@ -1886,7 +1867,7 @@ void Mat_Mul_VECTOR3D_4X3(VECTOR3D_PTR  va,
 
     for (int col=0; col < 3; col++)
         {
-        // compute dot product from row of ma 
+        // compute dot product from row of ma
         // and column of mb
         float sum = 0; // used to hold result
 
@@ -1898,8 +1879,8 @@ void Mat_Mul_VECTOR3D_4X3(VECTOR3D_PTR  va,
              } // end for index
 
         // add in last element in column or w*mb[3][col]
-        sum+=mb->M[row][col];    
- 
+        sum+=mb->M[row][col];
+
         // insert resulting col element
         vprod->M[col] = sum;
 
@@ -1909,17 +1890,17 @@ void Mat_Mul_VECTOR3D_4X3(VECTOR3D_PTR  va,
 
 ////////////////////////////////////////////////////////////////////
 
-void Mat_Mul_VECTOR4D_4X4(VECTOR4D_PTR  va, 
+void Mat_Mul_VECTOR4D_4X4(VECTOR4D_PTR  va,
                           MATRIX4X4_PTR mb,
                           VECTOR4D_PTR  vprod)
 {
-// this function multiplies a VECTOR4D against a 
+// this function multiplies a VECTOR4D against a
 // 4x4 matrix - ma*mb and stores the result in mprod
 // the function makes no assumptions
 
     for (int col=0; col < 4; col++)
         {
-        // compute dot product from row of ma 
+        // compute dot product from row of ma
         // and column of mb
         float sum = 0.0; // used to hold result
 
@@ -1939,7 +1920,7 @@ void Mat_Mul_VECTOR4D_4X4(VECTOR4D_PTR  va,
 ////////////////////////////////////////////////////////////////////
 
 void Mat_Mul_4X4_VECTOR4D(MATRIX4X4_PTR ma,
-                          VECTOR4D_PTR  vb,                          VECTOR4D_PTR  vprod)
+                          VECTOR4D_PTR  vb,                          VECTOR4D_PTR  vprod)
 {
 // this function multiplies a 4X4 matrix against a VECTOR4D
 // - ma*vb and stores the result in mprod
@@ -1965,7 +1946,7 @@ void Mat_Mul_4X4_VECTOR4D(MATRIX4X4_PTR ma,
 
 
 void Mat_Mul_3X3_VECTOR3D(MATRIX3X3_PTR ma,
-                          VECTOR3D_PTR  vb,                          VECTOR3D_PTR  vprod)
+                          VECTOR3D_PTR  vb,                          VECTOR3D_PTR  vprod)
 {
 // this function multiplies a 3X3 matrix against a VECTOR3D
 // - ma*vb and stores the result in mprod
@@ -1989,12 +1970,12 @@ void Mat_Mul_3X3_VECTOR3D(MATRIX3X3_PTR ma,
 
 } // end Mat_Mul_VECTOR3D_3X3
 
-////////////////////////////////////////////////////////////////////
-void Mat_Mul_VECTOR4D_4X3(VECTOR4D_PTR  va, 
+////////////////////////////////////////////////////////////////////
+void Mat_Mul_VECTOR4D_4X3(VECTOR4D_PTR  va,
                           MATRIX4X4_PTR mb,
                           VECTOR4D_PTR  vprod)
 {
-// this function multiplies a VECTOR4D against a 
+// this function multiplies a VECTOR4D against a
 // 4x3 matrix - ma*mb and stores the result in mprod
 // the function assumes that the last column of
 // mb is [0 0 0 1]t , thus w just gets replicated
@@ -2002,7 +1983,7 @@ void Mat_Mul_VECTOR4D_4X3(VECTOR4D_PTR  va,
 
     for (int col=0; col < 3; col++)
         {
-        // compute dot product from row of ma 
+        // compute dot product from row of ma
         // and column of mb
         float sum = 0; // used to hold result
 
@@ -2024,14 +2005,14 @@ void Mat_Mul_VECTOR4D_4X3(VECTOR4D_PTR  va,
 
 ///////////////////////////////////////////////////////////////
 
-void Mat_Init_4X4(MATRIX4X4_PTR ma, 
+void Mat_Init_4X4(MATRIX4X4_PTR ma,
                  float m00, float m01, float m02, float m03,
                  float m10, float m11, float m12, float m13,
                  float m20, float m21, float m22, float m23,
                  float m30, float m31, float m32, float m33)
 
 {
-// this function fills a 4x4 matrix with the sent data in 
+// this function fills a 4x4 matrix with the sent data in
 // row major form
 ma->M00 = m00; ma->M01 = m01; ma->M02 = m02; ma->M03 = m03;
 ma->M10 = m10; ma->M11 = m11; ma->M12 = m12; ma->M13 = m13;
@@ -2077,7 +2058,7 @@ mi->M31 = -( m->M30 * mi->M01 + m->M31 * mi->M11 + m->M32 * mi->M21 );
 mi->M32 = -( m->M30 * mi->M02 + m->M31 * mi->M12 + m->M32 * mi->M22 );
 mi->M33 = 1.0f; // always 0
 
-// return success 
+// return success
 return(1);
 
 } // end Mat_Inverse_4X4
@@ -2087,7 +2068,7 @@ return(1);
 
 /////////////////////////////////////////////////////////////////
 
-void Init_Parm_Line2D(POINT2D_PTR p_init, 
+void Init_Parm_Line2D(POINT2D_PTR p_init,
                       POINT2D_PTR p_term, PARMLINE2D_PTR p)
 {
 // this initializes a parametric 2d line, note that the function
@@ -2108,7 +2089,7 @@ VECTOR2D_Build(p_init, p_term, &(p->v));
 
 /////////////////////////////////////////////////////////////////
 
-void Init_Parm_Line3D(POINT3D_PTR p_init, 
+void Init_Parm_Line3D(POINT3D_PTR p_init,
                       POINT3D_PTR p_term, PARMLINE3D_PTR p)
 {
 // this initializes a parametric 3d line, note that the function
@@ -2131,7 +2112,7 @@ VECTOR3D_Build(p_init, p_term, &(p->v));
 
 void Compute_Parm_Line2D(PARMLINE2D_PTR p, float t, POINT2D_PTR pt)
 {
-// this function computes the value of the sent parametric 
+// this function computes the value of the sent parametric
 // line at the value of t
 
 pt->x = p->p0.x + p->v.x*t;
@@ -2143,7 +2124,7 @@ pt->y = p->p0.y + p->v.y*t;
 
 void Compute_Parm_Line3D(PARMLINE3D_PTR p, float t, POINT3D_PTR pt)
 {
-// this function computes the value of the sent parametric 
+// this function computes the value of the sent parametric
 // line at the value of t
 
 pt->x = p->p0.x + p->v.x*t;
@@ -2154,24 +2135,24 @@ pt->z = p->p0.z + p->v.z*t;
 
 ///////////////////////////////////////////////////////////////////
 
-int Intersect_Parm_Lines2D(PARMLINE2D_PTR p1, PARMLINE2D_PTR p2, 
+int Intersect_Parm_Lines2D(PARMLINE2D_PTR p1, PARMLINE2D_PTR p2,
                            float *t1, float *t2)
 {
-// this function computes the interesection of the two parametric 
-// line segments the function returns true if the segments 
-// interesect and sets the values of t1 and t2 to the t values that 
-// the intersection occurs on the lines p1 and p2 respectively, 
+// this function computes the interesection of the two parametric
+// line segments the function returns true if the segments
+// interesect and sets the values of t1 and t2 to the t values that
+// the intersection occurs on the lines p1 and p2 respectively,
 // however, the function may send back t value not in the range [0,1]
-// this means that the segments don't intersect, but the lines that 
-// they represent do, thus a retun of 0 means no intersection, a 
-// 1 means intersection on the segments and a 2 means the lines 
-// intersect, but not necessarily the segments and 3 means that 
+// this means that the segments don't intersect, but the lines that
+// they represent do, thus a retun of 0 means no intersection, a
+// 1 means intersection on the segments and a 2 means the lines
+// intersect, but not necessarily the segments and 3 means that
 // the lines are the same, thus they intersect everywhere
 
 // basically we have a system of 2d linear equations, we need
 // to solve for t1, t2 when x,y are both equal (if that's possible)
 
-// step 1: test for parallel lines, if the direction vectors are 
+// step 1: test for parallel lines, if the direction vectors are
 // scalar multiples then the lines are parallel and can't possible
 // intersect unless the lines overlap
 
@@ -2180,9 +2161,9 @@ if (fabs(det_p1p2) <= EPSILON_E5)
    {
    // at this point, the lines either don't intersect at all
    // or they are the same lines, in which case they may intersect
-   // at one or many points along the segments, at this point we 
+   // at one or many points along the segments, at this point we
    // will assume that the lines don't intersect at all, but later
-   // we may need to rewrite this function and take into 
+   // we may need to rewrite this function and take into
    // consideration the overlap and singular point exceptions
    return(PARM_LINE_NO_INTERSECT);
 
@@ -2203,7 +2184,7 @@ if (fabs(det_p1p2) <= EPSILON_E5)
 // p2.y = p20.y + v2.y*t2
 // solve the system when x1 = x2 and y1 = y2
 // explained in chapter 4
-*t1 = (p2->v.x*(p1->p0.y - p2->p0.y) - p2->v.y*(p1->p0.x - p2->p0.x)) 
+*t1 = (p2->v.x*(p1->p0.y - p2->p0.y) - p2->v.y*(p1->p0.x - p2->p0.x))
       /det_p1p2;
 
 *t2 = (p1->v.x*(p1->p0.y - p2->p0.y) - p1->v.y*(p1->p0.x - p2->p0.x))
@@ -2221,20 +2202,20 @@ else
 
 int Intersect_Parm_Lines2D(PARMLINE2D_PTR p1, PARMLINE2D_PTR p2, POINT2D_PTR pt)
 {
-// this function computes the interesection of the two 
-// parametric line segments the function returns true if 
-// the segments interesect and sets the values of pt to the 
-// intersection point, however, the function may send back a 
-// value not in the range [0,1] on the segments this means 
-// that the segments don't intersect, but the lines that 
-// they represent do, thus a retun of 0 means no intersection, 
-// a 1 means intersection on the segments and a 2 means 
+// this function computes the interesection of the two
+// parametric line segments the function returns true if
+// the segments interesect and sets the values of pt to the
+// intersection point, however, the function may send back a
+// value not in the range [0,1] on the segments this means
+// that the segments don't intersect, but the lines that
+// they represent do, thus a retun of 0 means no intersection,
+// a 1 means intersection on the segments and a 2 means
 // the lines intersect, but not necessarily the segments
 
 // basically we have a system of 2d linear equations, we need
 // to solve for t1, t2 when x,y are both equal (if that's possible)
 
-// step 1: test for parallel lines, if the direction vectors are 
+// step 1: test for parallel lines, if the direction vectors are
 // scalar multiples then the lines are parallel and can't possible
 // intersect
 
@@ -2244,9 +2225,9 @@ if (fabs(det_p1p2) <= EPSILON_E5)
    {
    // at this point, the lines either don't intersect at all
    // or they are the same lines, in which case they may intersect
-   // at one or many points along the segments, at this point we 
+   // at one or many points along the segments, at this point we
    // will assume that the lines don't intersect at all, but later
-   // we may need to rewrite this function and take into 
+   // we may need to rewrite this function and take into
    // consideration the overlap and singular point exceptions
    return(PARM_LINE_NO_INTERSECT);
 
@@ -2287,7 +2268,7 @@ else
 
 ///////////////////////////////////////////////////////////////
 
-void PLANE3D_Init(PLANE3D_PTR plane, POINT3D_PTR p0, 
+void PLANE3D_Init(PLANE3D_PTR plane, POINT3D_PTR p0,
                   VECTOR3D_PTR normal, int normalize=0)
 {
 // this function initializes a 3d plane
@@ -2312,9 +2293,9 @@ else
 {
 // test if the point in on the plane, in the positive halfspace
 // or negative halfspace
-float hs = plane->n.x*(pt->x - plane->p0.x) + 
+float hs = plane->n.x*(pt->x - plane->p0.x) +
            plane->n.y*(pt->y - plane->p0.y) +
-           plane->n.z*(pt->z - plane->p0.z); 
+           plane->n.z*(pt->z - plane->p0.z);
 
 // return half space value
 return(hs);
@@ -2323,27 +2304,27 @@ return(hs);
 
 ///////////////////////////////////////////////////////////////
 
-int Intersect_Parm_Line3D_Plane3D(PARMLINE3D_PTR pline, 
-                                         PLANE3D_PTR plane, 
+int Intersect_Parm_Line3D_Plane3D(PARMLINE3D_PTR pline,
+                                         PLANE3D_PTR plane,
                                          float *t, POINT3D_PTR pt)
 {
-// this function determines where the sent parametric line 
-// intersects the plane the function will project the line 
-// infinitely in both directions, to compute the intersection, 
+// this function determines where the sent parametric line
+// intersects the plane the function will project the line
+// infinitely in both directions, to compute the intersection,
 // but the line segment defined by p intersected the plane iff t e [0,1]
-// also the function returns 0 for no intersection, 1 for 
-// intersection of the segment and the plane and 2 for intersection 
-// of the line along the segment and the plane 3, the line lies 
+// also the function returns 0 for no intersection, 1 for
+// intersection of the segment and the plane and 2 for intersection
+// of the line along the segment and the plane 3, the line lies
 // in the plane
 
-// first test of the line and the plane are parallel, if so 
+// first test of the line and the plane are parallel, if so
 // then they can't intersect unless the line lies in the plane!
 
 float plane_dot_line = VECTOR3D_Dot(&pline->v, &plane->n);
 
 if (fabs(plane_dot_line) <= EPSILON_E5)
    {
-   // the line and plane are co-planer, does the line lie 
+   // the line and plane are co-planer, does the line lie
    // in the plane?
    if (fabs(Compute_Point_In_Plane3D(&pline->p0, plane)) <= EPSILON_E5)
       return(PARM_LINE_INTERSECT_EVERYWHERE);
@@ -2351,20 +2332,20 @@ if (fabs(plane_dot_line) <= EPSILON_E5)
       return(PARM_LINE_NO_INTERSECT);
    } // end if
 
-// from chapter 4 we know that we can solve for the t where 
+// from chapter 4 we know that we can solve for the t where
 // intersection occurs by
 // a*(x0+vx*t) + b*(y0+vy*t) + c*(z0+vz*t) + d =0
 // t = -(a*x0 + b*y0 + c*z0 + d)/(a*vx + b*vy + c*vz)
 // x0,y0,z0, vx,vy,vz, define the line
-// d = (-a*xp0 - b*yp0 - c*zp0), xp0, yp0, zp0, define the point on the plane 
+// d = (-a*xp0 - b*yp0 - c*zp0), xp0, yp0, zp0, define the point on the plane
 
-*t = -(plane->n.x*pline->p0.x + 
-       plane->n.y*pline->p0.y + 
+*t = -(plane->n.x*pline->p0.x +
+       plane->n.y*pline->p0.y +
        plane->n.z*pline->p0.z -
-       plane->n.x*plane->p0.x - 
-       plane->n.y*plane->p0.y - 
+       plane->n.x*plane->p0.x -
+       plane->n.y*plane->p0.y -
        plane->n.z*plane->p0.z) / (plane_dot_line);
-   
+
 // now plug t into the parametric line and solve for x,y,z
 pt->x = pline->p0.x + pline->v.x*(*t);
 pt->y = pline->p0.y + pline->v.y*(*t);
@@ -2402,7 +2383,7 @@ string VECTOR4D_To_String(VECTOR4D_PTR ma) {
     ss << ma->M[row] << ")" << endl;
 
     return ss.str();
-}
+}
 /////////////////////////////////////////////////////////////////
 
 
